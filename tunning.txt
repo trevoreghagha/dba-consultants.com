@@ -1,0 +1,26 @@
+SET SERVEROUTPUT ON
+DECLARE
+  l_sql_tune_task_id  VARCHAR2(100);
+BEGIN
+  l_sql_tune_task_id := DBMS_SQLTUNE.create_tuning_task (
+                          sql_id      => '39z1vtmwp1vha',
+                          scope       => DBMS_SQLTUNE.scope_comprehensive,
+                          time_limit  => 3000,
+                          task_name   => '39z1vtmwp1vha_tuning_task',
+                          description => 'Tuning task for statement 39z1vtmwp1vha.');
+  DBMS_OUTPUT.put_line('l_sql_tune_task_id: ' || l_sql_tune_task_id);
+END;
+/
+
+EXEC DBMS_SQLTUNE.execute_tuning_task(task_name => '39z1vtmwp1vha_tuning_task');
+
+
+SET LONG 10000;
+SET PAGESIZE 1000
+SET LINESIZE 200
+SELECT DBMS_SQLTUNE.report_tuning_task('39z1vtmwp1vha_tuning_task') AS recommendations FROM dual;
+SET PAGESIZE 24
+
+
+
+

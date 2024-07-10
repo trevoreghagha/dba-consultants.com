@@ -1,0 +1,1048 @@
+router
+10.255.90.2  172.31.255.2 192.168.200.2 
+
+10.255.90.217  SQLDBA092019B
+172.31.255.217  SQLDBA092019A
+
+
+DNS
+172.31.255.10 
+172.31.255.11 
+
+DNS IPASERVER
+10.255.90.101
+
+
+
+
+WINCLU1 172.31.255.110 
+WINCLU2 172.31.255.111
+CLULOGIC\  172.31.255.112
+
+WINNODE1 172.31.255.116 
+WINNODE2 172.31.255.117
+
+	nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+	nmcli connection modify GNETTeam0 ipv4.addresses '192.168.200.2/24' ipv4.method manual connection.autoconnect yes
+	nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens160 master GNETTeam0
+	nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens161 master GNETTeam0
+	nmcli connection up
+	nmcli connection up GNETTeam0
+	nmcli connection up GNETTeam0-port1
+	nmcli connection up GNETTeam0-port2
+
+	nmcli connection add type team con-name GNETTeam1 ifname GNETTeam1 config '{"runner": {"name":"activebackup"}}'
+	nmcli connection modify GNETTeam1 ipv4.addresses '10.255.90.2/24' ipv4.method manual connection.autoconnect yes
+	nmcli connection add type team-slave con-name GNETTeam1-port1 ifname ens162 master GNETTeam1
+	nmcli connection add type team-slave con-name GNETTeam1-port2 ifname ens192 master GNETTeam1
+	nmcli connection up
+	nmcli connection up GNETTeam1
+	nmcli connection up GNETTeam1-port1
+	nmcli connection up GNETTeam1-port2
+
+
+	nmcli connection add type team con-name GNETTeam2 ifname GNETTeam2 config '{"runner": {"name":"activebackup"}}'
+	nmcli connection modify GNETTeam2 ipv4.addresses '172.31.255.2/24' ipv4.method manual connection.autoconnect yes
+	nmcli connection add type team-slave con-name GNETTeam2-port1 ifname ens193 master GNETTeam2
+	nmcli connection add type team-slave con-name GNETTeam2-port2 ifname ens194 master GNETTeam2
+	nmcli connection up
+	nmcli connection up GNETTeam2
+	nmcli connection up GNETTeam2-port1
+	nmcli connection up GNETTeam2-port2
+
+	nmcli connection modify System\ GNETTeam0 +ipv4.routes "10.225.90.0/24 192.168.200.2""
+	nmcli connection modify System\ GNETTeam0 +ipv4.routes "172.31.0.0/24 192.168.200.2""
+	nmcli connection modify System\ GNETTeam1 +ipv4.routes "192.168.0.0/24 10.255.90.2""
+	nmcli connection modify System\ GNETTeam1 +ipv4.routes "172.31.0.0/24 10.255.90.2""
+	nmcli connection modify System\ GNETTeam2 +ipv4.routes "192.168.0.0/24 172.31.255.2""
+	nmcli connection modify System\ GNETTeam2 +ipv4.routes "10.225.0.0/24 172.31.255.2""
+	 
+
+	systemctl restart network
+
+	echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+	sysctl --system 
+
+	firewall-cmd --permanent --add-masquerade
+	firewall-cmd --reload
+	firewall-cmd --list-all
+_____________________________________________________________________________________________________________________-
+
+DNS
+172.31.255.10 
+172.31.255.11 
+ 
+ nmcli c modify ens257 ipv4.dns "10.255.90.101 172.31.255.10"
+ 
+________________________________________________________________________________________________________________-- 
+iSCI SERVER
+10.255.90.22
+
+yum install targetcli
+systemctl enable target
+systemctl start target
+
+firewall-cmd --permanent --add-port=3260/tcp
+firewall-cmd --reload
+
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-1 
+  Logical volume "IscsiLv-1" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-2
+  Logical volume "IscsiLv-2" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-3
+  Logical volume "IscsiLv-3" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-4
+  Logical volume "IscsiLv-4" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-5
+  Logical volume "IscsiLv-5" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-6
+  Logical volume "IscsiLv-6" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-7
+  Logical volume "IscsiLv-7" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-8
+  Logical volume "IscsiLv-8" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-9
+  Logical volume "IscsiLv-9" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-10
+  Logical volume "IscsiLv-10" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-11
+  Logical volume "IscsiLv-11" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-12
+  Logical volume "IscsiLv-12" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-13
+  Logical volume "IscsiLv-13" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-14
+  Logical volume "IscsiLv-14" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-15
+  Logical volume "IscsiLv-15" created.
+[root@linuxiscsi ~]# 
+[root@linuxiscsi ~]# lvs
+  LV         VG      Attr       LSize  Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  IscsiLv-1  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-10 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-11 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-12 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-13 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-14 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-15 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-2  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-3  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-4  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-5  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-6  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-7  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-8  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-9  IscsiVg -wi-a----- 20,00g                                                    
+  root       centos  -wi-ao---- 13,39g                                                    
+  swap       centos  -wi-ao----  1,60g                                                    
+[root@linuxiscsi ~]# vgs
+  VG      #PV #LV #SN Attr   VSize   VFree 
+  IscsiVg   7  15   0 wz--n- 315,97g 15,97g
+  centos    1   2   0 wz--n- <15,00g     0 
+[root@linuxiscsi ~]# targetcli
+targetcli shell version 2.1.fb46
+Copyright 2011-2013 by Datera, Inc and others.
+For help on commands, type 'help'.
+
+
+[root@linuxiscsi target]# targetcli
+targetcli shell version 2.1.fb46
+Copyright 2011-2013 by Datera, Inc and others.
+For help on commands, type 'help'.
+
+/backstores/block> ls /backstores
+o- backstores ................................................................................................................ [...]
+  o- block .................................................................................................... [Storage Objects: 0]
+  o- fileio ................................................................................................... [Storage Objects: 0]
+  o- pscsi .................................................................................................... [Storage Objects: 0]
+  o- ramdisk .................................................................................................. [Storage Objects: 0]
+/backstores/block> epwd
+Command not found epwd
+/backstores/block> pwd
+/backstores/block
+/backstores/block> create name=LUN_1 dev=/dev/IscsiVg/IscsiLv-1
+Created block storage object LUN_1 using /dev/IscsiVg/IscsiLv-1.
+/backstores/block> create name=LUN_2 dev=/dev/IscsiVg/IscsiLv-2
+Created block storage object LUN_2 using /dev/IscsiVg/IscsiLv-2.
+/backstores/block> create name=LUN_1 dev=/dev/IscsiVg/IscsiLv-1 
+Storage object block/LUN_1 exists
+/backstores/block> create name=LUN_2 dev=/dev/IscsiVg/IscsiLv-2
+Storage object block/LUN_2 exists
+/backstores/block> create name=LUN_3 dev=/dev/IscsiVg/IscsiLv-3
+Created block storage object LUN_3 using /dev/IscsiVg/IscsiLv-3.
+/backstores/block> create name=LUN_4 dev=/dev/IscsiVg/IscsiLv-4
+Created block storage object LUN_4 using /dev/IscsiVg/IscsiLv-4.
+/backstores/block> create name=LUN_5 dev=/dev/IscsiVg/IscsiLv-5
+Created block storage object LUN_5 using /dev/IscsiVg/IscsiLv-5.
+/backstores/block> create name=LUN_6 dev=/dev/IscsiVg/IscsiLv-6
+Created block storage object LUN_6 using /dev/IscsiVg/IscsiLv-6.
+/backstores/block> create name=LUN_7 dev=/dev/IscsiVg/IscsiLv-7
+Created block storage object LUN_7 using /dev/IscsiVg/IscsiLv-7.
+/backstores/block> cd /iscsi
+/iscsi> delete iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+No such Target in configfs: /sys/kernel/config/target/iscsi/iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+/iscsi> create iqn.2019-05.linuxiscsi.trevdom.inf:exa1
+Created target iqn.2019-05.linuxiscsi.trevdom.inf:exa1.
+Created TPG 1.
+Global pref auto_add_default_portal=true
+Created default portal listening on all IPs (0.0.0.0), port 3260.
+/iscsi> ls /iscsi
+o- iscsi .............................................................................................................. [Targets: 2]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:disk1 ............................................................................ [TPGs: 1]
+  | o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+  |   o- acls ............................................................................................................ [ACLs: 1]
+  |   | o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2 ...................................................... [Mapped LUNs: 0]
+  |   o- luns ............................................................................................................ [LUNs: 0]
+  |   o- portals ...................................................................................................... [Portals: 1]
+  |     o- 0.0.0.0:3260 ....................................................................................................... [OK]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................. [TPGs: 1]
+    o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+      o- acls ............................................................................................................ [ACLs: 0]
+      o- luns ............................................................................................................ [LUNs: 0]
+      o- portals ...................................................................................................... [Portals: 1]
+        o- 0.0.0.0:3260 ....................................................................................................... [OK]
+/iscsi> ls /backstores
+o- backstores ................................................................................................................ [...]
+  o- block ................................................................................................... [Storage Objects: 15]
+  | o- LUN_1 ............................................................. [/dev/IscsiVg/IscsiLv-1 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_2 ............................................................. [/dev/IscsiVg/IscsiLv-2 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_3 ............................................................. [/dev/IscsiVg/IscsiLv-3 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_4 ............................................................. [/dev/IscsiVg/IscsiLv-4 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_5 ............................................................. [/dev/IscsiVg/IscsiLv-5 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_6 ............................................................. [/dev/IscsiVg/IscsiLv-6 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_7 ............................................................. [/dev/IscsiVg/IscsiLv-7 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  o- fileio ................................................................................................... [Storage Objects: 0]
+  o- pscsi .................................................................................................... [Storage Objects: 0]
+  o- ramdisk .................................................................................................. [Storage Objects: 0]
+/iscsi> ls /iscsi
+o- iscsi .............................................................................................................. [Targets: 2]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:disk1 ............................................................................ [TPGs: 1]
+  | o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+  |   o- acls ............................................................................................................ [ACLs: 1]
+  |   | o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2 ...................................................... [Mapped LUNs: 0]
+  |   o- luns ............................................................................................................ [LUNs: 0]
+  |   o- portals ...................................................................................................... [Portals: 1]
+  |     o- 0.0.0.0:3260 ....................................................................................................... [OK]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................. [TPGs: 1]
+    o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+      o- acls ............................................................................................................ [ACLs: 0]
+      o- luns ............................................................................................................ [LUNs: 0]
+      o- portals ...................................................................................................... [Portals: 1]
+        o- 0.0.0.0:3260 ....................................................................................................... [OK]
+/iscsi> 
+/iscsi> ls /iscsi
+o- iscsi .............................................................................................................. [Targets: 1]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................. [TPGs: 1]
+    o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+      o- acls ............................................................................................................ [ACLs: 0]
+      o- luns ............................................................................................................ [LUNs: 0]
+      o- portals ...................................................................................................... [Portals: 1]
+        o- 0.0.0.0:3260 ....................................................................................................... [OK]
+/iscsi> cd iqn.2019-05.linuxiscsi.trevdom.inf:exa1
+/iscsi/iqn.20...vdom.inf:exa1> ls
+o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................... [TPGs: 1]
+  o- tpg1 ................................................................................................... [no-gen-acls, no-auth]
+    o- acls .............................................................................................................. [ACLs: 0]
+    o- luns .............................................................................................................. [LUNs: 0]
+    o- portals ........................................................................................................ [Portals: 1]
+      o- 0.0.0.0:3260 ......................................................................................................... [OK]
+/iscsi/iqn.20...vdom.inf:exa1> cd tpg1/luns
+/iscsi/iqn.20...xa1/tpg1/luns> pwd
+/iscsi/iqn.2019-05.linuxiscsi.trevdom.inf:exa1/tpg1/luns
+/iscsi/iqn.20...xa1/tpg1/luns> ls
+o- luns .................................................................................................................. [LUNs: 0]
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_1 lun1
+Created LUN 1.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_2 lun2
+Created LUN 2.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_3 lun3
+Created LUN 3.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_4 lun4
+Created LUN 4.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_5 lun5
+Created LUN 5.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_6 lun6
+Created LUN 6.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_7 lun7
+Created LUN 7.
+/iscsi/iqn.20...xa1/tpg1/luns> 
+/iscsi/iqn.20...xa1/tpg1/luns> ls
+o- luns .................................................................................................................. [LUNs: 7]
+  o- lun1 ................................................................ [block/LUN_1 (/dev/IscsiVg/IscsiLv-1) (default_tg_pt_gp)]
+  o- lun2 ................................................................ [block/LUN_2 (/dev/IscsiVg/IscsiLv-2) (default_tg_pt_gp)]
+  o- lun3 ................................................................ [block/LUN_3 (/dev/IscsiVg/IscsiLv-3) (default_tg_pt_gp)]
+  o- lun4 ................................................................ [block/LUN_4 (/dev/IscsiVg/IscsiLv-4) (default_tg_pt_gp)]
+  o- lun5 ................................................................ [block/LUN_5 (/dev/IscsiVg/IscsiLv-5) (default_tg_pt_gp)]
+  o- lun6 ................................................................ [block/LUN_6 (/dev/IscsiVg/IscsiLv-6) (default_tg_pt_gp)]
+  o- lun7 ................................................................ [block/LUN_7 (/dev/IscsiVg/IscsiLv-7) (default_tg_pt_gp)]
+/iscsi/iqn.20...xa1/tpg1/luns> ls ..
+o- tpg1 ..................................................................................................... [no-gen-acls, no-auth]
+  o- acls ................................................................................................................ [ACLs: 0]
+  o- luns ................................................................................................................ [LUNs: 7]
+  | o- lun1 .............................................................. [block/LUN_1 (/dev/IscsiVg/IscsiLv-1) (default_tg_pt_gp)]
+  | o- lun2 .............................................................. [block/LUN_2 (/dev/IscsiVg/IscsiLv-2) (default_tg_pt_gp)]
+  | o- lun3 .............................................................. [block/LUN_3 (/dev/IscsiVg/IscsiLv-3) (default_tg_pt_gp)]
+  | o- lun4 .............................................................. [block/LUN_4 (/dev/IscsiVg/IscsiLv-4) (default_tg_pt_gp)]
+  | o- lun5 .............................................................. [block/LUN_5 (/dev/IscsiVg/IscsiLv-5) (default_tg_pt_gp)]
+  | o- lun6 .............................................................. [block/LUN_6 (/dev/IscsiVg/IscsiLv-6) (default_tg_pt_gp)]
+  | o- lun7 .............................................................. [block/LUN_7 (/dev/IscsiVg/IscsiLv-7) (default_tg_pt_gp)]
+  o- portals .......................................................................................................... [Portals: 1]
+    o- 0.0.0.0:3260 ........................................................................................................... [OK]
+/iscsi/iqn.20...xa1/tpg1/luns> cd ../acls
+/iscsi/iqn.20...xa1/tpg1/acls> ls
+o- acls .................................................................................................................. [ACLs: 0]
+/iscsi/iqn.20...xa1/tpg1/acls> pwd
+/iscsi/iqn.2019-05.linuxiscsi.trevdom.inf:exa1/tpg1/acls
+/iscsi/iqn.20...xa1/tpg1/acls> create iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+Created Node ACL for iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+Created mapped LUN 7.
+Created mapped LUN 6.
+Created mapped LUN 5.
+Created mapped LUN 4.
+Created mapped LUN 3.
+Created mapped LUN 2.
+Created mapped LUN 1.
+/iscsi/iqn.20...xa1/tpg1/acls> exit
+Global pref auto_save_on_exit=true
+Configuration saved to /etc/target/saveconfig.json
+
+
+
+[root@linuxiscsi target]# yum install sssd realmd oddjob oddjob-mkhomedir adcli samba-common samba-common-tools krb5-workstation openldap-clients policycoreutils-python -y
+
+[root@linuxiscsi target]# realm join dnsserver1.trevdom.inf --user=administrator or realm join 172.31.255.10 --user=administrator
+Password for administrator: 
+[root@linuxiscsi target]# realm list
+trevdom.inf
+  type: kerberos
+  realm-name: TREVDOM.INF
+  domain-name: trevdom.inf
+  configured: kerberos-member
+  server-software: active-directory
+  client-software: sssd
+  required-package: oddjob
+  required-package: oddjob-mkhomedir
+  required-package: sssd
+  required-package: adcli
+  required-package: samba-common-tools
+  login-formats: %U@trevdom.inf
+  login-policy: allow-realm-logins
+
+ON WINDOWS DNS:
+dnscmd . /RecordAdd trevdom.inf  linuxiscsi A 10.255.90.22
+dnscmd . /recordadd 90.255.10.in-addr.arpa. 22 PTR linuxiscsi.trevdom.inf iSCISERVER
+
+
+
+
+_________________________________________________________________________________________________________________________________________
+
+RAC PRIMARY
+
+192.168.200.30-40
+
+
+fdisk /dev/sdb
+mkdir /u01
+mkfs.xfs /dev/sdb1
+mount /dev/sdb1 /u01
+vi /etc/fstab
+
+yum install -y oracle-database-preinstall-19c
+
+useradd -g oinstall grid
+usermod -aG dba grid
+usermod -aG dba oracle
+passwd grid
+passwd oracle
+
+hostnamectl set-hostname exa1node1.trevdom.inf
+
+[root@exa1node1 ~]# cat /etc/hosts
+	127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+	::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+	#EXA1
+	# Public
+	10.255.90.130   exa1node1.trevdom.inf       exa1node1
+	10.255.90.131   exa1node2.trevdom.inf       exa1node2
+	# Private
+	10.254.90.130   exa1node1-priv.trevdom.inf  exa1node1-priv
+	10.254.90.131   exa1node2-priv.trevdom.inf  exa1node2-priv
+	# Cluster
+	10.255.90.132   exa1node-clu.trevdom.inf       exa1node1
+	# Virtual
+	10.255.90.133   exa1node1-vip.trevdom.inf   exa1node1-vip
+	10.255.90.134   exa1node2-vip.trevdom.inf   exa1node2-vip
+	# SCAN
+	#10.255.90.135   exa1node-scan.trevdom.inf  exa1node-scan
+	#10.255.90.136   exa1node-scan.trevdom.inf  exa1node-scan
+	#10.255.90.137   exa1node-scan.trevdom.inf  exa1node-scan
+
+	#EXA2
+	10.255.90.30   exa2node1.trevdom.inf       exa2node1
+	10.255.90.31   exa2node2.trevdom.inf       exa2node2
+	# Private
+	10.254.90.30   exa2node1-priv.trevdom.inf  exa2node1-priv
+	10.254.90.31   exa2node2-priv.trevdom.inf  exa2node2-priv
+	# Cluster
+	10.255.90.32   exa2node-clu.trevdom.inf       exa2node-clu
+	# Virtual
+	10.255.90.33   exa2node1-vip.trevdom.inf   exa2node1-vip
+	10.255.90.34   exa2node2-vip.trevdom.inf   exa2node2-vip
+	# SCAN
+	#10.255.90.35   exa2node-scan.trevdom.inf  exa2node-scan
+	#10.255.90.36   exa2node-scan.trevdom.inf  exa2node-scan
+	#10.255.90.37   exa2node-scan.trevdom.inf  exa2node-scan
+
+	#DR
+	192.168.200.30   drnode.trevdom.inf       drnode
+
+	#OEM
+	192.168.200.38   oemnode.trevdom.inf       oemnode
+
+
+
+
+
+
+
+ipa dnsrecord-add trevdom.inf exa2node1-vip --a-rec 10.255.90.33
+ipa dnsrecord-add trevdom.inf exa2node2-vip --a-rec 10.255.90.34
+ipa dnsrecord-add trevdom.inf exa2node-clu  --a-rec 10.255.90.32
+ipa dnsrecord-add trevdom.inf exa2node-scan --a-rec 10.255.90.35
+ipa dnsrecord-add trevdom.inf exa2node-scan --a-rec 10.255.90.36
+ipa dnsrecord-add trevdom.inf exa2node-scan --a-rec 10.255.90.37
+
+
+
+nmcli connection delete GNETTeam0-port1
+nmcli connection delete GNETTeam0-port2
+nmcli connection delete GNETTeam0 
+nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam0 ipv4.addresses '192.168.200.30/24' ipv4.method manual connection.autoconnect yes ipv4.dns "172.31.255.10 8.8.8.8" ipv4.gateway 192.168.200.2
+nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens160 master GNETTeam0
+nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens161 master GNETTeam0
+nmcli connection up GNETTeam0
+nmcli connection up GNETTeam0-port1
+nmcli connection up GNETTeam0-port2
+
+
+nmcli connection delete GNETTeam1-port1
+nmcli connection delete GNETTeam1-port2
+nmcli connection delete GNETTeam1
+nmcli connection add type team con-name GNETTeam1 ifname GNETTeam1 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam1 ipv4.addresses '192.167.200.3/24' ipv4.method manual connection.autoconnect yes
+nmcli connection add type team-slave con-name GNETTeam1-port1 ifnam0e ens192 master GNETTeam1
+nmcli connection add type team-slave con-name GNETTeam1-port2 ifname ens193 master GNETTeam1
+nmcli connection up GNETTeam1
+nmcli connection up GNETTeam1-port1
+nmcli connection up GNETTeam1-port2
+
+nmcli connection delete GNETTeam2-port1
+nmcli connection delete GNETTeam2-port2
+nmcli connection delete GNETTeam2
+nmcli connection add type team con-name GNETTeam2 ifname GNETTeam2 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam2 ipv4.addresses '10.255.90.31/24' ipv4.method manual connection.autoconnect yes 
+nmcli connection add type team-slave con-name GNETTeam2-port1 ifname ens224 master GNETTeam2
+nmcli connection add type team-slave con-name GNETTeam2-port2 ifname ens225 master GNETTeam2
+nmcli connection up GNETTeam2
+nmcli connection up GNETTeam2-port1
+nmcli connection up GNETTeam2-port2
+
+yum update -y
+
+yum install sssd realmd oddjob oddjob-mkhomedir adcli samba-common samba-common-tools krb5-workstation openldap-clients policycoreutils-python -y
+realm join 172.31.255.10 --user=administrator
+realm list
+
+ON WINDOWS DNS:
+dnscmd . /RecordAdd trevdom.inf  linuxiscsi A 192.168.200.30
+
+nslookup exa1node1
+
+yum install iscsi-initi*
+cat /etc/iscsi/initiatorname.iscsi
+InitiatorNname=iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+
+systemctl enable iscsid
+systemctl start iscsid
+
+ON TARGET
+iscsiadm -m discovery --type sendtargets -p 10.255.90.22
+
+
+fdisk -l
+lsblk
+[root@exa1node1 ~]# lsblk
+NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sdf           8:80   0   20G  0 disk 
+sdd           8:48   0   20G  0 disk 
+sdb           8:16   0   60G  0 disk 
+└─sdb1        8:17   0   60G  0 part /u01
+sdi           8:128  0   20G  0 disk 
+sr0          11:0    1  4,3G  0 rom  /run/media/root/OL-7.6 Server.x86_64
+sdg           8:96   0   20G  0 disk 
+sde           8:64   0   20G  0 disk 
+sdc           8:32   0   20G  0 disk 
+sda           8:0    0   16G  0 disk 
+├─sda2        8:2    0 15,5G  0 part 
+│ ├─ol-swap 252:1    0    4G  0 lvm  [SWAP]
+│ └─ol-root 252:0    0 11,5G  0 lvm  /
+└─sda1        8:1    0  500M  0 part /boot
+sdh           8:112  0   20G  0 disk 
+
+
+fdisk /dev/sdc
+fdisk /dev/sdd
+fdisk /dev/sde
+fdisk /dev/sdf
+fdisk /dev/sdg
+fdisk /dev/sdh
+fdisk /dev/sdi
+
+[root@exa1node1 ~]# for i in {c..i}
+> do
+> echo /dev/sd$i;
+> /usr/lib/udev/scsi_id -g -u -d /dev/sd$i;
+> echo "__________________________________";
+> done
+/dev/sdc
+3600140581ca8ee0b1384e1d9fc956f66
+__________________________________
+/dev/sdd
+36001405f24f0872d79b45dabcbb594c1
+__________________________________
+/dev/sde
+360014052c69775e17aa455bbd53b5040
+__________________________________
+/dev/sdf
+360014051ff0881e37094b87bb83b9acf
+__________________________________
+/dev/sdg
+360014054270b8425faf4436a0b37287c
+__________________________________
+/dev/sdh
+36001405bff243b2bad041f480c3f69fc
+__________________________________
+/dev/sdi
+3600140576bd2fbe42fb44a9ae10f87db
+__________________________________
+
+cat /etc/udev/rules.d/99-oracle-asmdevices.rules
+
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="360014054e18aeffe02648318f4f3c412", SYMLINK+="asmocr01", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="3600140556f6cbd56a8a43c79ec7a0517", SYMLINK+="asmocr02", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="36001405b76a592641bd483f9b6bd7fa1", SYMLINK+="asmdata01", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="360014053ff6c0e353af4c7bb72ad3bab", SYMLINK+="asmreco01", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="360014059151c67e55ea41e584f57c716", SYMLINK+="asmreco02", OWNER="grid", GROUP="oinstall", MODE="0660"
+
+
+
+udevadm control --reload-rules && udevadm trigger
+ls /dev/asm*
+/dev/asmdata01  /dev/asmdisk01  /dev/asmdosk02  /dev/asmocr01  /dev/asmocr02  /dev/asmreco01  /dev/asmreco02
+
+[root@exa1node1 ~]# ls -l /dev/sd* | grep grid
+brw-rw----. 1 grid oinstall 8,  33 21 mag 18.11 /dev/sdc1
+brw-rw----. 1 grid oinstall 8,  49 21 mag 18.11 /dev/sdd1
+brw-rw----. 1 grid oinstall 8,  65 21 mag 18.11 /dev/sde1
+brw-rw----. 1 grid oinstall 8,  81 21 mag 18.11 /dev/sdf1
+brw-rw----. 1 grid oinstall 8,  97 21 mag 18.11 /dev/sdg1
+brw-rw----. 1 grid oinstall 8, 113 21 mag 18.11 /dev/sdh1
+brw-rw----. 1 grid oinstall 8, 129 21 mag 18.11 /dev/sdi1
+
+oracle profile
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa1node1.trevdom.inf
+export ORACLE_UNQNAME=EXA1DB
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/19.0.0/dbhome_1
+export ORACLE_SID=EXA1DB1
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+grid profile
+PATH=$PATH:$HOME/.local/bin:$HOME/bin
+
+export PATH
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa1node1.trevdom.inf
+export ORACLE_UNQNAME=+ASM
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/grid/19.0.0/home1
+export ORACLE_SID=+ASM1
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+export PATH
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa2node2.trevdom.inf
+export ORACLE_UNQNAME=+ASM
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/grid/19.0.0/home1
+export ORACLE_SID=+ASM2
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+
+
+mkdir -p /u01/app/oracle/
+chown -R grid:oinstall /u01
+chmod -R 775 /u01
+mkdir -p /u01/app/oracle/product/19.0.0/dbhome_1
+chown -R oracle:oinstall /u01/app/oracle/product
+chmod -R 775 /u01/app/oracle/product
+
+su - grid
+cd $ORACLE_HOME
+	
+cd cv/rpm
+cd rpm
+su 
+rpm -ivh cvuqdisk-1.0.10-1.rpm
+scp cvuqdisk-1.0.10-1.rpm exa1node2:/tmp
+ssh exa1node2:/tmp/cvuqdisk-1.0.10-1.rpm
+
+
+[grid@exa1node1 ~]$ crsctl status res -t
+--------------------------------------------------------------------------------
+Name           Target  State        Server                   State details       
+--------------------------------------------------------------------------------
+Local Resources
+--------------------------------------------------------------------------------
+ora.LISTENER.lsnr
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+ora.chad
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+ora.net1.network
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+ora.ons
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+--------------------------------------------------------------------------------
+Cluster Resources
+--------------------------------------------------------------------------------
+ora.ASMNET1LSNR_ASM.lsnr(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        ONLINE  OFFLINE                               STABLE
+ora.LISTENER_SCAN1.lsnr
+      1        ONLINE  ONLINE       exa1node2                STABLE
+ora.LISTENER_SCAN2.lsnr
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.LISTENER_SCAN3.lsnr
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.MGMTLSNR
+      1        ONLINE  ONLINE       exa1node1                169.254.12.149 192.1
+                                                             67.200.30 10.255.90.
+                                                             30,STABLE
+ora.OCR.dg(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        OFFLINE OFFLINE                               STABLE
+ora.asm(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                Started,STABLE
+      2        ONLINE  ONLINE       exa1node2                Started,STABLE
+      3        ONLINE  OFFLINE                               STABLE
+ora.asmnet1.asmnetwork(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        ONLINE  OFFLINE                               STABLE
+ora.cvu
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.exa1node1.vip
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.exa1node2.vip
+      1        ONLINE  ONLINE       exa1node2                STABLE
+ora.mgmtdb
+      1        ONLINE  ONLINE       exa1node1                Open,STABLE
+ora.qosmserver
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.scan1.vip
+      1        ONLINE  ONLINE       exa1node2                STABLE
+ora.scan2.vip
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.scan3.vip
+      1        ONLINE  ONLINE       exa1node1                STABLE
+--------------------------------------------------------------------------------
+
+
+[grid@exa1node1 ~]$ ps -eaf | grep pmon
+grid     20013  8250  0 17:28 pts/0    00:00:00 grep --color=auto pmon
+grid     21028     1  0 16:34 ?        00:00:00 asm_pmon_+ASM1
+grid     29872     1  0 16:55 ?        00:00:00 mdb_pmon_-MGMTDB
+
+
+[grid@exa1node2 ~]$ ps -eaf | grep pmon
+grid     20816     1  0 16:59 ?        00:00:00 asm_pmon_+ASM2
+grid     32116 31938  0 17:29 pts/0    00:00:00 grep --color=auto pmon
+
+
+
+
+_________________________________________________________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+RAC SECONDARY
+
+10.255.90.30-40
+
+_____________________________________________________________________________________
+iSCI SERVER
+10.255.90.22
+
+yum install targetcli
+systemctl enable target
+systemctl start target
+
+firewall-cmd --permanent --add-port=3260/tcp
+firewall-cmd --reload
+
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-1 
+  Logical volume "IscsiLv-1" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-2
+  Logical volume "IscsiLv-2" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-3
+  Logical volume "IscsiLv-3" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-4
+  Logical volume "IscsiLv-4" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-5
+  Logical volume "IscsiLv-5" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-6
+  Logical volume "IscsiLv-6" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-7
+  Logical volume "IscsiLv-7" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-8
+  Logical volume "IscsiLv-8" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-9
+  Logical volume "IscsiLv-9" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-10
+  Logical volume "IscsiLv-10" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-11
+  Logical volume "IscsiLv-11" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-12
+  Logical volume "IscsiLv-12" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-13
+  Logical volume "IscsiLv-13" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-14
+  Logical volume "IscsiLv-14" created.
+[root@linuxiscsi ~]# lvcreate IscsiVg -L 20G -n IscsiLv-15
+  Logical volume "IscsiLv-15" created.
+[root@linuxiscsi ~]# 
+[root@linuxiscsi ~]# lvs
+  LV         VG      Attr       LSize  Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  IscsiLv-1  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-10 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-11 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-12 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-13 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-14 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-15 IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-2  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-3  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-4  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-5  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-6  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-7  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-8  IscsiVg -wi-a----- 20,00g                                                    
+  IscsiLv-9  IscsiVg -wi-a----- 20,00g                                                    
+  root       centos  -wi-ao---- 13,39g                                                    
+  swap       centos  -wi-ao----  1,60g                                                    
+[root@linuxiscsi ~]# vgs
+  VG      #PV #LV #SN Attr   VSize   VFree 
+  IscsiVg   7  15   0 wz--n- 315,97g 15,97g
+  centos    1   2   0 wz--n- <15,00g     0 
+[root@linuxiscsi ~]# targetcli
+targetcli shell version 2.1.fb46
+Copyright 2011-2013 by Datera, Inc and others.
+For help on commands, type 'help'.
+
+
+[root@linuxiscsi target]# targetcli
+targetcli shell version 2.1.fb46
+Copyright 2011-2013 by Datera, Inc and others.
+For help on commands, type 'help'.
+
+/backstores/block> ls /backstores
+o- backstores ................................................................................................................ [...]
+  o- block .................................................................................................... [Storage Objects: 0]
+  o- fileio ................................................................................................... [Storage Objects: 0]
+  o- pscsi .................................................................................................... [Storage Objects: 0]
+  o- ramdisk .................................................................................................. [Storage Objects: 0]
+/backstores/block> pwd
+/backstores/block
+/backstores/block> create name=LUN_1 dev=/dev/IscsiVg/IscsiLv-1
+Created block storage object LUN_1 using /dev/IscsiVg/IscsiLv-1.
+/backstores/block> create name=LUN_2 dev=/dev/IscsiVg/IscsiLv-2
+Created block storage object LUN_2 using /dev/IscsiVg/IscsiLv-2.
+/backstores/block> create name=LUN_1 dev=/dev/IscsiVg/IscsiLv-1 
+Storage object block/LUN_1 exists
+/backstores/block> create name=LUN_2 dev=/dev/IscsiVg/IscsiLv-2
+Storage object block/LUN_2 exists
+/backstores/block> create name=LUN_3 dev=/dev/IscsiVg/IscsiLv-3
+Created block storage object LUN_3 using /dev/IscsiVg/IscsiLv-3.
+/backstores/block> create name=LUN_4 dev=/dev/IscsiVg/IscsiLv-4
+Created block storage object LUN_4 using /dev/IscsiVg/IscsiLv-4.
+/backstores/block> create name=LUN_5 dev=/dev/IscsiVg/IscsiLv-5
+Created block storage object LUN_5 using /dev/IscsiVg/IscsiLv-5.
+/backstores/block> create name=LUN_6 dev=/dev/IscsiVg/IscsiLv-6
+Created block storage object LUN_6 using /dev/IscsiVg/IscsiLv-6.
+/backstores/block> create name=LUN_7 dev=/dev/IscsiVg/IscsiLv-7
+Created block storage object LUN_7 using /dev/IscsiVg/IscsiLv-7.
+/backstores/block> cd /iscsi
+/iscsi> delete iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+No such Target in configfs: /sys/kernel/config/target/iscsi/iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+/iscsi> create iqn.2019-05.linuxiscsi.trevdom.inf:exa1
+Created target iqn.2019-05.linuxiscsi.trevdom.inf:exa1.
+Created TPG 1.
+Global pref auto_add_default_portal=true
+Created default portal listening on all IPs (0.0.0.0), port 3260.
+/iscsi> ls /iscsi
+o- iscsi .............................................................................................................. [Targets: 2]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:disk1 ............................................................................ [TPGs: 1]
+  | o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+  |   o- acls ............................................................................................................ [ACLs: 1]
+  |   | o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2 ...................................................... [Mapped LUNs: 0]
+  |   o- luns ............................................................................................................ [LUNs: 0]
+  |   o- portals ...................................................................................................... [Portals: 1]
+  |     o- 0.0.0.0:3260 ....................................................................................................... [OK]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................. [TPGs: 1]
+    o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+      o- acls ............................................................................................................ [ACLs: 0]
+      o- luns ............................................................................................................ [LUNs: 0]
+      o- portals ...................................................................................................... [Portals: 1]
+        o- 0.0.0.0:3260 ....................................................................................................... [OK]
+/iscsi> ls /backstores
+o- backstores ................................................................................................................ [...]
+  o- block ................................................................................................... [Storage Objects: 15]
+  | o- LUN_1 ............................................................. [/dev/IscsiVg/IscsiLv-1 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_2 ............................................................. [/dev/IscsiVg/IscsiLv-2 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_3 ............................................................. [/dev/IscsiVg/IscsiLv-3 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_4 ............................................................. [/dev/IscsiVg/IscsiLv-4 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_5 ............................................................. [/dev/IscsiVg/IscsiLv-5 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_6 ............................................................. [/dev/IscsiVg/IscsiLv-6 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  | o- LUN_7 ............................................................. [/dev/IscsiVg/IscsiLv-7 (20.0GiB) write-thru deactivated]
+  | | o- alua ..................................................................................................... [ALUA Groups: 1]
+  | |   o- default_tg_pt_gp ......................................................................... [ALUA state: Active/optimized]
+  o- fileio ................................................................................................... [Storage Objects: 0]
+  o- pscsi .................................................................................................... [Storage Objects: 0]
+  o- ramdisk .................................................................................................. [Storage Objects: 0]
+/iscsi> ls /iscsi
+o- iscsi .............................................................................................................. [Targets: 2]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:disk1 ............................................................................ [TPGs: 1]
+  | o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+  |   o- acls ............................................................................................................ [ACLs: 1]
+  |   | o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2 ...................................................... [Mapped LUNs: 0]
+  |   o- luns ............................................................................................................ [LUNs: 0]
+  |   o- portals ...................................................................................................... [Portals: 1]
+  |     o- 0.0.0.0:3260 ....................................................................................................... [OK]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................. [TPGs: 1]
+    o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+      o- acls ............................................................................................................ [ACLs: 0]
+      o- luns ............................................................................................................ [LUNs: 0]
+      o- portals ...................................................................................................... [Portals: 1]
+        o- 0.0.0.0:3260 ....................................................................................................... [OK]
+/iscsi> 
+/iscsi> ls 
+o- iscsi .............................................................................................................. [Targets: 1]
+  o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................. [TPGs: 1]
+    o- tpg1 ................................................................................................. [no-gen-acls, no-auth]
+      o- acls ............................................................................................................ [ACLs: 0]
+      o- luns ............................................................................................................ [LUNs: 0]
+      o- portals ...................................................................................................... [Portals: 1]
+        o- 0.0.0.0:3260 ....................................................................................................... [OK]
+/iscsi> cd iqn.2019-05.linuxiscsi.trevdom.inf:exa1
+/iscsi/iqn.20...vdom.inf:exa1> ls
+o- iqn.2019-05.linuxiscsi.trevdom.inf:exa1 ............................................................................... [TPGs: 1]
+  o- tpg1 ................................................................................................... [no-gen-acls, no-auth]
+    o- acls .............................................................................................................. [ACLs: 0]
+    o- luns .............................................................................................................. [LUNs: 0]
+    o- portals ........................................................................................................ [Portals: 1]
+      o- 0.0.0.0:3260 ......................................................................................................... [OK]
+/iscsi/iqn.20...vdom.inf:exa1> cd tpg1/luns
+/iscsi/iqn.20...xa1/tpg1/luns> pwd
+/iscsi/iqn.2019-05.linuxiscsi.trevdom.inf:exa1/tpg1/luns
+/iscsi/iqn.20...xa1/tpg1/luns> ls
+o- luns .................................................................................................................. [LUNs: 0]
+/iscsi/iqn.20...xa1/tpg1/luns> 	
+Created LUN 1.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_2 lun2
+Created LUN 2.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_3 lun3
+Created LUN 3.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_4 lun4
+Created LUN 4.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_5 lun5
+Created LUN 5.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_6 lun6
+Created LUN 6.
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_7 lun7
+Created LUN 7.
+/iscsi/iqn.20...xa1/tpg1/luns> 
+/iscsi/iqn.20...xa1/tpg1/luns> ls
+o- luns .................................................................................................................. [LUNs: 7]
+  o- lun1 ................................................................ [block/LUN_1 (/dev/IscsiVg/IscsiLv-1) (default_tg_pt_gp)]
+  o- lun2 ................................................................ [block/LUN_2 (/dev/IscsiVg/IscsiLv-2) (default_tg_pt_gp)]
+  o- lun3 ................................................................ [block/LUN_3 (/dev/IscsiVg/IscsiLv-3) (default_tg_pt_gp)]
+  o- lun4 ................................................................ [block/LUN_4 (/dev/IscsiVg/IscsiLv-4) (default_tg_pt_gp)]
+  o- lun5 ................................................................ [block/LUN_5 (/dev/IscsiVg/IscsiLv-5) (default_tg_pt_gp)]
+  o- lun6 ................................................................ [block/LUN_6 (/dev/IscsiVg/IscsiLv-6) (default_tg_pt_gp)]
+  o- lun7 ................................................................ [block/LUN_7 (/dev/IscsiVg/IscsiLv-7) (default_tg_pt_gp)]
+/iscsi/iqn.20...xa1/tpg1/luns> ls ..
+o- tpg1 ..................................................................................................... [no-gen-acls, no-auth]
+  o- acls ................................................................................................................ [ACLs: 0]
+  o- luns ................................................................................................................ [LUNs: 7]
+  | o- lun1 .............................................................. [block/LUN_1 (/dev/IscsiVg/IscsiLv-1) (default_tg_pt_gp)]
+  | o- lun2 .............................................................. [block/LUN_2 (/dev/IscsiVg/IscsiLv-2) (default_tg_pt_gp)]
+  | o- lun3 .............................................................. [block/LUN_3 (/dev/IscsiVg/IscsiLv-3) (default_tg_pt_gp)]
+  | o- lun4 .............................................................. [block/LUN_4 (/dev/IscsiVg/IscsiLv-4) (default_tg_pt_gp)]
+  | o- lun5 .............................................................. [block/LUN_5 (/dev/IscsiVg/IscsiLv-5) (default_tg_pt_gp)]
+  | o- lun6 .............................................................. [block/LUN_6 (/dev/IscsiVg/IscsiLv-6) (default_tg_pt_gp)]
+  | o- lun7 .............................................................. [block/LUN_7 (/dev/IscsiVg/IscsiLv-7) (default_tg_pt_gp)]
+  o- portals .......................................................................................................... [Portals: 1]
+    o- 0.0.0.0:3260 ........................................................................................................... [OK]
+/iscsi/iqn.20...xa1/tpg1/luns> cd ../acls
+/iscsi/iqn.20...xa1/tpg1/acls> ls
+o- acls .................................................................................................................. [ACLs: 0]
+/iscsi/iqn.20...xa1/tpg1/acls> pwd
+/iscsi/iqn.2019-05.linuxiscsi.trevdom.inf:exa1/tpg1/acls
+/iscsi/iqn.20...xa1/tpg1/acls> create iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+Created Node ACL for iqn.2019-05.linuxiscsi.trevdom.inf:exa1node1node2
+Created mapped LUN 7.
+Created mapped LUN 6.
+Created mapped LUN 5.
+Created mapped LUN 4.
+Created mapped LUN 3.
+Created mapped LUN 2.
+Created mapped LUN 1.
+/iscsi/iqn.20...xa1/tpg1/acls> exit
+Global pref auto_save_on_exit=true
+Configuration saved to /etc/target/saveconfig.json
+
+
+
+[root@linuxiscsi target]# yum install sssd realmd oddjob oddjob-mkhomedir adcli samba-common samba-common-tools krb5-workstation openldap-clients policycoreutils-python -y
+
+[root@linuxiscsi target]# realm join dnsserver1.trevdom.inf --user=administrator or realm join 172.31.255.10 --user=administrator
+Password for administrator: 
+[root@linuxiscsi target]# realm list
+trevdom.inf
+  type: kerberos
+  realm-name: TREVDOM.INF
+  domain-name: trevdom.inf
+  configured: kerberos-member
+  server-software: active-directory
+  client-software: sssd
+  required-package: oddjob
+  required-package: oddjob-mkhomedir
+  required-package: sssd
+  required-package: adcli
+  required-package: samba-common-tools
+  login-formats: %U@trevdom.inf
+  login-policy: allow-realm-logins
+
+ON WINDOWS DNS:
+dnscmd . /RecordAdd trevdom.inf  linuxiscsi A 10.255.90.22
+dnscmd . /recordadd 90.255.10.in-addr.arpa. 22 PTR linuxiscsi.trevdom.inf
+
+
+_______________________________________________________________________________________
+
+
+
+
+
+
+
+
+INTGATEWAY
+178.32.13.200/29
+10.255.90.5/24
+
+nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam0 ipv4.addresses '178.32.13.200/29' ipv4.method manual connection.autoconnect yes ipv4.gateway 164.132.206.254 ipv4.dns 8.8.8.8
+nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens33 master GNETTeam0
+nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens34 master GNETTeam0
+nmcli connection up
+nmcli connection up GNETTeam0
+nmcli connection up GNETTeam0-port1
+nmcli connection up GNETTeam0-port2
+
+nmcli connection add type team con-name GNETTeam1 ifname GNETTeam1 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam1 ipv4.addresses '10.255.90.5/24' ipv4.method manual connection.autoconnect yes ipv4.gateway 10.255.90.2
+nmcli connection add type team-slave con-name GNETTeam1-port1 ifname ens35 master GNETTeam1
+nmcli connection add type team-slave con-name GNETTeam1-port2 ifname ens36 master GNETTeam1
+nmcli connection up GNETTeam1
+nmcli connection up GNETTeam1-port1
+nmcli connection up GNETTeam1-port2
+
+nmcli connection up GNETTeam2
+nmcli connection up GNETTeam2-port1
+nmcli connection up GNETTeam2-port2
+
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf 
+sysctl -p
+
+firewall-cmd --get-zone-of-interface=GNETTeam0
+firewall-cmd --get-zone-of-interface=GNETTeam1
+
+firewall-cmd --zone=internal --change-interface=GNETTeam1
+firewall-cmd --permanent --zone=internal --change-interface=GNETTeam1
+firewall-cmd --get-zone-of-interface=GNETTeam1
+
+firewall-cmd --zone=public --add-masquerade
+firewall-cmd --permanent --zone=public --add-masquerade
+firewall-cmd --zone=public --list-all

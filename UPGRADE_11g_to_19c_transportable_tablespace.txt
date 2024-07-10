@@ -1,0 +1,125 @@
+
+EXECUTE DBMS_TTS.TRANSPORT_SET_CHECK('HARVESTMETA,HARVESTBLOB,HARVESTINDEX', TRUE);
+
+SELECT * FROM transport_set_violations;
+
+ALTER TABLESPACE HARVESTMETA READ ONLY;
+
+ALTER TABLESPACE HARVESTBLOB READ ONLY;
+
+ALTER TABLESPACE HARVESTINDEX READ ONLY;
+
+nohup expdp '"/ as sysdba"' directory=HARV_EXP transport_tablespaces=HARVESTMETA,HARVESTBLOB,HARVESTINDEX dumpfile=HARVEST_TTS.dmp logfile=HARVEST_TTS.log >HARVEST_TTS.log.nohup &
+nohup expdp '"/ as sysdba"' directory=HARV_EXP schemas=HARVEST include=SEQUENCE,VIEW,SYNONYM, dumpfile=HARVEST_sequence.dmp logfile=HARVEST_sequence.log > HARVEST_sequence.nohup &
+nohup expdp '"/ as sysdba"' directory=HARV_EXP schemas=HARVEST content=METADATA_ONLY dumpfile=HARVEST_METADATA_ONLY.dmp logfile=HARVEST_METADATA_ONLY.log > HARVEST_METADATA_ONLY.nohup &
+
+ON HAR99P4O
+env |grep HAR99P4O
+
+
+ssh HAR99P4O
+su - oracle
+. .HAR99P4O.profile
+DROP TABLESPACE HARVESTMETA INCLUDING CONTENTS AND DATAFILES; 
+
+DROP TABLESPACE HARVESTBLOB INCLUDING CONTENTS AND DATAFILES;  
+
+DROP TABLESPACE HARVESTINDEX INCLUDING CONTENTS AND DATAFILES; 
+
+nohup sh -xv copy1.sh > copy1.nohup.log &
+
+
+nohup sh -xv copy2.sh > copy2.nohup.log &
+
+
+nohup sh -xv copy3.sh > copy3.nohup.log &
+
+
+nohup sh -xv copy4.sh > copy4.nohup.log &
+
+
+nohup sh -xv copy5.sh > copy5.nohup.log &
+
+
+nohup sh -xv copy6.sh > copy6.nohup.log &
+
+
+
+
+
+
+
+
+
+import
+
+impdp '"/ as sysdba"' directory=DATA_PUMP_DIR2 dumpfile=HARVEST_TTS.dmp logfile=HARVEST_TTS.imp.log transport_datafiles='/oracle/oradata/HAR99P4O/data02/HARVESTBLOBFILE*.dmp', '/oracle/oradata/HAR99P4O/data01/HARVESTBLOBFILE*.dmp', '/oracle/oradata/HAR99P4O/data01/harvestblob*.dbf', '/oracle/oradata/HAR99P4O/data01/HARVESTINDEXFILE_01.dmp', '/oracle/oradata/HAR99P4O/data01/HARVESTMETAFILE_01.dmp' TRANSPORTABLE=KEEP_READ_ONLY &
+
+ALTER TABLESPACE HARVESTMETA READ WRITE;
+ALTER TABLESPACE HARVESTBLOB READ WRITE;
+ALTER TABLESPACE HARVESTINDEX READ WRITE;
+
+impdp '"/ as sysdba"' directory=DATA_PUMP_DIR2 schemas=HARVEST include=SEQUENCE,VIEW,SYNONYM dumpfile=HARVEST_sequence.dmp logfile=HARVEST_sequence.imp.log 
+impdp '"/ as sysdba"' directory=DATA_PUMP_DIR2 schemas=HARVEST include=grant dumpfile=HARVEST_METADATA_ONLY.dmp logfile=HARVEST_METADATA_ONLY.log
+
+
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_01.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_02.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_03.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_04.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_05.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_06.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_07.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_08.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_09.dmp /oracle/oradata/HAR99P4O/data02
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_10.dmp /oracle/oradata/HAR99P4O/data02
+echo "finished copy1" > copy1.log
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_11.dmp /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_12.dmp /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_13.dmp /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTBLOBFILE_14.dmp /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob15.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob16.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob17.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob18.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob19.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob20.dbf /oracle/oradata/HAR99P4O/data01
+echo "finished copy2" > copy2.log
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob21.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob22.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob23.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob24.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob25.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob26.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob27.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob28.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob29.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob30.dbf /oracle/oradata/HAR99P4O/data01
+echo "finished copy3" > copy3.log
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob31.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob32.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob33.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob34.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob35.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob36.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob37.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob38.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob39.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob40.dbf /oracle/oradata/HAR99P4O/data01
+echo "finished copy4" > copy4.log
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob41.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob42.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob43.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob44.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob45.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob46.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob47.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob48.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob49.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob50.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob51.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/harvestblob52.dbf /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTINDEXFILE_01.dmp /oracle/oradata/HAR99P4O/data01
+cp /oracle/oradata/11.2.0/HAR99P2O/data01/HARVESTMETAFILE_01.dmp /oracle/oradata/HAR99P4O/data01
+
+create tablespace HARVESTMETA datafile '/oracle/oradata/HAR99P4O/data01

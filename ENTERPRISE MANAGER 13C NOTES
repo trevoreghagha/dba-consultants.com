@@ -1,0 +1,187 @@
+isolation.tools.copy.disable          FALSE
+isolation.tools.paste.disable         FALSE
+isolation.tools.setGUIOptions.enable  TRUE
+
+
+LOCALLY
+emctl start agent
+emctl stop agent
+
+REMOTELY
+emcli start_agent –agent_name="dbservera:3872" –host_username="oracle" –host_pwd="Souper_53cre3t"
+emcli start_agent –agent_name="dbservera:3872" –credential_name="oraprod"
+emcli start_agent –agent_name="dbservera:3872" –credential_setname="HostCreds"
+
+emcli stop_agent –agent_name="dbservera:3872" –host_username="oracle"
+..
+..
+
+emcli get_targets
+emcli get_targets -targets=oracle_database,host
+emcli get_targets -targets="database3:oracle_database" -alerts
+
+emcli get_targets -targets=host
+Status  Status           Target Type           Target Name                        
+ ID                                                                               
+1       Up               host                  oemnode.trevdom.lab                
+1       Up               host                  exa2node2                          
+1       Up               host                  exa1node1                          
+1       Up               host                  exa1node2                          
+1       Up               host                  exa2node1       
+
+
+emcli get_blackouts
+
+emcli create_blackout -name='Blackout1'  -add_targets='exa1node1:host' \
+-schedule='frequency:once;duration:3' \
+-reason='Testing'
+
+emcli get_blackouts -noheader -script | cut -f1
+Blackout1
+
+emcli get_blackout_details -name='Blackout1'
+
+emcli get_blackout_details -name='Blackout1' -noheader -format="name:csv"
+
+
+
+
+emcli stop_blackout -name='Blackout1'
+
+emcli delete_blackout -name='Blackout1'
+
+
+Create a blackout in a script and test the exit value
+
+emcli create_blackout -name='Blackout1' -add_targets='exa1node1:host' -schedule='frequency:once;duration:3' -reason='Testing'
+sleep 10
+MYSTATUS=$(emcli get_blackout_details -name='Blackout1' \-noheader -format='name:csv' | cut -d ',' -f 1)
+if [ "$MYSTATUS" <> "Started" ]; 
+then echo 'Blackout not started'        
+exit 1
+fi
+
+<Maintenance Script>
+
+
+
+
+
+
+DYNAMICALLY STOP AND START AGENTS ON HOSTS
+touch argfile_stop.lst
+touch argfile_start.lst
+for thisAGENT in `emcli get_targets | grep oracle_emd |  awk '{ print $4 }'`; 
+do
+          echo "start_agent –agent_name=${thisAGENT} –credential_name=oraprod" > argfile_start.lst
+          echo "stop_agent –agent_name=${thisAGENT} –credential_name=oraprod" > argfile_stop.lst
+done
+emcli login –user="SYSMAN"
+emcli sync
+emcli argfile ./argfile_stop.lst
+logout	
+
+
+Create Targets
+
+Add the “orcl” single-instance database target:
+ emcli add_target -name='ORCL_DB' -type='oracle_database' -host='oradb1.example.com' -properties='SID:orcl;Port:1521;OracleHome:/u01/app/oracle/product/12.1.0/dbhome_1; \
+MachineName:oradb1-vip.example.com' -credentials='Role:NORMAL;UserName:DBSNMP;password:<password>' 
+--Target "ORCL_DB:oracle_database" added successfully
+
+
+Add the “orcl1 & orcl2” RAC-instance database target:
+
+Add RAC database node one:
+emcli add_target -name='ORCL1_ORCL_RACCLUSTER' -type='oracle_database' -host='oradb1.example.com' \
+-properties='SID:orclrac1;Port:1521;OracleHome:/u01/app/oracle/product/12.1.0/dbhome_1; MachineName:oradb1-vip.example.com' 
+-credentials='Role:NORMAL;UserName:DBSNMP;password:<password>'
+--Target "ORCL1_ORCL_RACCLUSTER:oracle_database" added successfully
+
+Add RAC database node two
+emcli add_target -name='ORCL2_ORCL_RACCLUSTER' -type='oracle_database' -host='oradb2.example.com' \
+-properties='SID:orclrac2;Port:1521;OracleHome:/u01/app/oracle/product/12.1.0/dbhome_1; MachineName:oradb2-vip.example.com' \
+-credentials='Role:NORMAL;UserName:DBSNMP;password:<password>'
+--Target "ORCL2_ORCL_RACCLUSTER:oracle_database" added successfully
+
+Add RAC database cluster, associating the two previous database instances
+emcli add_target -name='ORCL_RACCLUSTER' -host='oradb1.example.com' -monitor_mode='1' -type='rac_database' -properties='ServiceName:orclrac;ClusterName:oradb-cluster' \
+-instances='ORCL1_ORCL_RACCLUSTER:oracle_database;ORCL2_ORCL_RACCLUSTER:oracle_database'
+---Target "ORCL_RACCLUSTER:rac_database" added successfully
+
+
+
+
+>>> status()
+Oracle Enterprise Manager 13c Release 4 EM CLI with Scripting option.
+Copyright (c) 1996, 2020 Oracle Corporation and/or its affiliates. All rights reserved.
+
+Verb Jars Home (EMCLI_VERBJAR_DIR)      : /u01/app/oracle/middleware/bin/./bindings/13.4.0.0.0/.emcli
+EM CLI Home (EMCLI_INSTALL_HOME)        : /u01/app/oracle/middleware/bin/.
+EM CLI Version                          : 13.4.0.0.0
+Java Home                               : /u01/app/oracle/middleware/oracle_common/jdk/jre
+Java Version                            : 1.8.0_231
+Log file (EMCLI_LOG_LOC)                : CONSOLE
+Log level (EMCLI_LOG_LEVEL)             : SEVERE
+EM URL (EMCLI_OMS_URL)                  : https://oemnode.trevdom.lab:7803/em
+EM user (EMCLI_USERNAME)                : sysman
+Auto login (EMCLI_AUTOLOGIN)            : true
+Trust all certificates (EMCLI_TRUSTALL) : true
+
+Type help('client_properties') to see a list of available client properties.
+
+
+
+
+
+cat /home/oemuser/scripts/login.py
+
+####
+from emcli import *
+
+set_client_property('EMCLI_OMS_URL', 'https://oemnode.trevdom.lab:7803/em')
+set_client_property('EMCLI_TRUSTALL', 'true')
+
+myLogin(username='sysman',password="Bobos_123")
+
+#myLogin()
+####
+
+
+export JYTHONPATH=$JYTHONPATH:/home/oracle/scripts
+cd $OEM_HOME/bin
+
+
+TO USE LOGIN 
+./emcli
+import login
+
+
+LIST DB TARGETS ON LINUX HOSTS
+cat list_targets.py
+####
+import emcli
+import login
+if (len(sys.argv) <> 1 ):
+    print "Usage: emcli @list_targets.py OSname"
+    exit()
+ 
+#login( username="EMuser", password="EMpassword")
+myDBs = list( resource="Targets", search="TARGET_TYPE='oracle_database'" )
+             
+for DB in myDBs.out()['data']:
+    # we get the host info for the oracle database target
+    hostinfo = list( resource="Targets",search="TARGET_NAME='" + DB['HOST_NAME'] + "'" )
+    # the above one should return only one item, so we use the first item
+    OS = hostinfo.out()['data'][0]['TYPE_QUALIFIER1']
+    # we print only the targets if their OS name equal to the first argument of script
+    if ( OS.lower() == sys.argv[0].lower() ):
+        print DB['TARGET_NAME'],hostinfo.out()['data'][0]['TYPE_QUALIFIER1']
+####
+
+
+DIRECT SQL:
+
+emcli list -sql="select t.target_name DBANME, os.TYPE_QUALIFIER1 OSNAME from MGMT\$TARGET t, MGMT\$TARGET os where t.HOST_NAME = os.TARGET_NAME 
+and t.target_type='oracle_database' and os.TYPE_QUALIFIER1 = 'Linux'"
+

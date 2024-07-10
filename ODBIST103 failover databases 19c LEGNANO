@@ -1,0 +1,375 @@
+asmcmd  mkdg '<dg name="acfsdata" redundancy="external"><dsk string="/dev/mapper/asmfs01" /></dg>'
+asmcmd mount acfsdata     --On all nodes
+asmcmd volcreate -G ACFSDATA -s 149G ACFSVOL
+asmcmd volinfo --all
+/sbin/mkfs -t acfs /dev/asm/acfsvol-119
+As root
+/sbin/acfsutil registry -a /dev/asm/acfsvol-119 /u01/app/share
+
+ON ALL NODES:
+        multipath {
+                wwid                    3600507680c8005b3a000000000000024
+                alias                   asm_ODBIST103_OD103 
+        }
+        multipath {
+                wwid                    3600507680c8005b3a000000000000025
+                alias                   asm_ODBIST103_OA103
+        }
+		
+		
+service multipathd reload
+
+echo "- - -" > /sys/class/scsi_host/host1/scan
+echo "- - -" > /sys/class/scsi_host/host2/scan
+
+service multipathd reload
+
+
+CREATE DISKGROUP DG_ODBIST103_DATI EXTERNAL REDUNDANCY DISK '/dev/mapper/asm_ODBIST103_OD103';
+
+CREATE DISKGROUP DG_ODBIST103_FRA EXTERNAL REDUNDANCY DISK '/dev/mapper/asm_ODBIST103_OA103';
+
+
+echo "alter diskgroup DG_ODBIST103_DATI set attribute 'compatible.rdbms'='19.0';" | sqlplus / as sysasm
+echo "alter diskgroup DG_ODBIST103_DATI set attribute 'compatible.asm'='19.0';" | sqlplus / as sysasm
+echo "alter diskgroup DG_ODBIST103_FRA set attribute 'compatible.rdbms'='19.0';" | sqlplus / as sysasm
+
+echo "alter diskgroup DG_ODBIST103_FRA set attribute 'compatible.asm'='
+echo "alter diskgroup DG_ODBIST103_FRA mount;" | sqlplus / as sysasm
+echo "alter diskgroup DG_ODBIST103_DATI mount;" | sqlplus / as sysasm
+
+ 
+ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1
+ORACLE_BASE=/u01/app/oracle
+ORACLE_SID=ODBIST103
+ADUMPDIR="/u01/app/oracle/admin/${ORACLE_SID}/adump"
+DATADG="+DG_ODBIST103_DATI"
+FRADG="+DG_ODBIST103_FRA"
+SGA_MAX_SIZE=8192MB
+SGA_TARGET=6144MB
+db_recovery_file_dest_size=29G
+DBIP=
+DBIPBCK=
+DBPORT=
+DBPORTBCK=
+
+
+
+ORACLE_SID=ODBIST103
+cat > ~/.profile.${ORACLE_SID} <<EOF
+# Oracle Settings
+export TMP=/tmp
+export TMPDIR=\$TMP
+export ORACLE_HOSTNAME=`hostname`
+export ORACLE_UNQNAME=${ORACLE_SID}
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=${ORACLE_HOME}
+export ORACLE_SID=${ORACLE_SID}
+export PATH=/usr/sbin:/usr/local/bin:\$PATH
+export PATH=\$ORACLE_HOME/bin:\$PATH
+export LD_LIBRARY_PATH=\$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=\$ORACLE_HOME/jlib:\$ORACLE_HOME/rdbms/jlib
+EOF
+
+
+
+ssh LE-ORADBS-11 "ORACLE_SID=ODBIST103; . ~/.profile.${ORACLE_SID};  mkdir -p /u01/app/oracle/admin/${ORACLE_SID}/adump; ls -ld /u01/app/oracle/admin/${ORACLE_SID}/adump"
+
+ssh LE-ORADBS-12 "ORACLE_SID=ODBIST103; . ~/.profile.${ORACLE_SID};  mkdir -p /u01/app/oracle/admin/${ORACLE_SID}/adump; ls -ld /u01/app/oracle/admin/${ORACLE_SID}/adump"
+
+ssh LE-ORADBS-13 "ORACLE_SID=ODBIST103; . ~/.profile.${ORACLE_SID};  mkdir -p /u01/app/oracle/admin/${ORACLE_SID}/adump; ls -ld /u01/app/oracle/admin/${ORACLE_SID}/adump"
+
+ssh LE-ORADBS-14 "ORACLE_SID=ODBIST103; . ~/.profile.${ORACLE_SID};  mkdir -p /u01/app/oracle/admin/${ORACLE_SID}/adump; ls -ld /u01/app/oracle/admin/${ORACLE_SID}/adump"
+
+
+source ~/.profile.${ORACLE_SID}
+
+
+GET CHARACTER SET FROM OLD SERVER
+select * from nls_database_parameters where parameter='NLS_CHARACTERSET';
+
+
+dbca -silent -createDatabase -templateName General_Purpose.dbc    \
+-gdbName ${ORACLE_SID} -sid ${ORACLE_SID}                         \
+-sysPassword Oracle_123 -systemPassword Oracle_123                \
+-emConfiguration NONE                                             \
+-storageType ASM                                                  \
+-diskGroupName ${DATADG}                                          \
+-recoveryGroupName ${FRADG}                                       \
+-characterSet AL32UTF8                                            \
+-redoLogFileSize 1024                                             \
+-initparams audit_trail=NONE,job_queue_processes=1000,db_recovery_file_dest_size=${db_recovery_file_dest_size},DB_CREATE_ONLINE_LOG_DEST_1=${DATADG}, control_files='${DATADG},${FRADG}', \
+DB_CREATE_ONLINE_LOG_DEST_2=${FRADG},DB_CREATE_FILE_DEST=${DATADG},db_block_size=8192,SGA_MAX_SIZE=${SGA_MAX_SIZE},SGA_TARGET=${SGA_TARGET},\
+PROCESSES=2000,OPEN_CURSORS=3000,PGA_AGGREGATE_LIMIT=6000M,PGA_AGGREGATE_TARGET=2048M,DB_FLASHBACK_RETENTION=2880,audit_file_dest=${ADUMPDIR}
+
+alter system set sga_max_size=10G scope=spfile;
+alter system set sga_target=8G scope=spfile;
+
+
+DBSPFILE=`srvctl config database -d ${ORACLE_SID} | awk ' /Spfile/ {print $2}'`
+srvctl config database -d ${ORACLE_SID}
+
+echo ${PASSWDFILE}
+echo ${DBSPFILE}
+
+echo "SPFILE='${DBSPFILE}'" > "${ORACLE_HOME}/dbs/init${ORACLE_SID}.ora" 
+
+srvctl stop database -d ${ORACLE_SID}
+
+echo y | srvctl remove database -d ${ORACLE_SID}
+
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+st
+
+scp ~/.profile.${ORACLE_SID} LE-ORADBS-12:~/
+scp ~/.profile.${ORACLE_SID} LE-ORADBS-13:~/
+scp ~/.profile.${ORACLE_SID} LE-ORADBS-14:~/
+
+scp "${ORACLE_HOME}/dbs/init${ORACLE_SID}.ora" LE-ORADBS-12:${ORACLE_HOME}/dbsartup;
+quit
+EOF
+
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+shutdown immediate;
+quit
+EOF
+scp "${ORACLE_HOME}/dbs/init${ORACLE_SID}.ora" LE-ORADBS-13:${ORACLE_HOME}/dbs
+scp "${ORACLE_HOME}/dbs/init${ORACLE_SID}.ora" LE-ORADBS-14:${ORACLE_HOME}/dbs
+
+scp "${ORACLE_HOME}/dbs/orapw${ORACLE_SID}" LE-ORADBS-12:${ORACLE_HOME}/dbs
+scp "${ORACLE_HOME}/dbs/orapw${ORACLE_SID}" LE-ORADBS-13:${ORACLE_HOME}/dbs
+scp "${ORACLE_HOME}/dbs/orapw${ORACLE_SID}" LE-ORADBS-14:${ORACLE_HOME}/dbs
+
+ssh LE-ORADBS-12
+export ORACLE_SID=ODBIST103
+. ~/.profile.${ORACLE_SID}
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+startup;
+quit
+EOF
+
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+shutdown immediate;
+quit
+EOF
+
+
+
+ssh LE-ORADBS-13
+export ORACLE_SID=ODBIST103
+. ~/.profile.${ORACLE_SID}
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+startup;
+quit
+EOF
+
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+shutdown immediate;
+quit
+EOF
+
+
+ssh LE-ORADBS-14
+export ORACLE_SID=ODBIST103
+. ~/.profile.${ORACLE_SID}
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+startup;
+quit
+EOF
+
+sqlplus -s /nolog <<EOF
+connect / as sysdba
+shutdown immediate;
+quit
+EOF
+
+
+database resource:
+
+AS grid USER:
+
+ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1
+ORACLE_BASE=/u01/app/oracle
+ORACLE_SID=ODBIST103
+ADUMPDIR="/u01/app/oracle/admin/${ORACLE_SID}/adump"
+DATADG="+DG_ODBIST103_DATI"
+FRADG="+DG_ODBIST103_FRA"
+SGA_MAX_SIZE=8192MB
+SGA_TARGET=6144MB
+db_recovery_file_dest_size=10G
+
+cat > /u01/app/grid/product/19.0.0.0/gridhome/crs/public/"${ORACLE_SID}".db.txt <<EOF
+TYPE=cluster_resource
+ACL=owner:oracle:rwx,pgrp:oinstall:rwx,other::r--,user:grid:r-x
+ACTION_FAILURE_TEMPLATE=
+ACTION_SCRIPT=/u01/app/grid/product/19.0.0.0/gridhome/crs/public/act_db_${ORACLE_SID}.sh
+ACTIVE_PLACEMENT=0
+AUTO_START=restore
+CARDINALITY=1
+CHECK_INTERVAL=10
+DEFAULT_TEMPLATE=PROPERTY(RESOURCE_CLASS=database) PROPERTY(DB_UNIQUE_NAME= CONCAT(PARSE(%NAME%, ., 2), %USR_ORA_DOMAIN%, .)) ELEMENT(INSTANCE_NAME= %GEN_USR_ORA_INST_NAME%) ELEMENT(DATABASE_TYPE= %DATABASE_TYPE%)
+DEGREE=1
+DESCRIPTION=Oracle Database resource
+ENABLED=1
+FAILOVER_DELAY=0
+FAILURE_INTERVAL=60
+FAILURE_THRESHOLD=1
+HOSTING_MEMBERS=LE-ORADBS-11 LE-ORADBS-12 LE-ORADBS-13 LE-ORADBS-14
+LOAD=1
+LOGGING_LEVEL=1
+NOT_RESTARTING_TEMPLATE=
+OFFLINE_CHECK_INTERVAL=0
+PLACEMENT=restricted
+PROFILE_CHANGE_TEMPLATE=
+RESTART_ATTEMPTS=1
+SCRIPT_TIMEOUT=60
+SERVER_POOLS=
+#START_DEPENDENCIES=hard(${ORACLE_SID}.listener,${ORACLE_SID}bck.listener,oraOCRDG.dg) pullup(ora.OCRDG.dg,${ORACLE_SID}.listener,${ORACLE_SID}bck.listener)
+START_TIMEOUT=600
+STATE_CHANGE_TEMPLATE=
+#STOP_DEPENDENCIES=hard(intermediate:ora.asm,shutdown:ora.${DATADG},${ORACLE_SID}.listener,${ORACLE_SID}bck.listener)
+STOP_TIMEOUT=600
+UPTIME_THRESHOLD=1h
+EOF
+
+chmod 775 /u01/app/grid/product/19.0.0.0/gridhome/crs/public/${ORACLE_SID}.db.txt
+
+scp /u01/app/grid/product/19.0.0.0/gridhome/crs/public/${ORACLE_SID}.db.txt LE-ORADBS-12:/u01/app/grid/product/19.0.0.0/gridhome/crs/public
+scp /u01/app/grid/product/19.0.0.0/gridhome/crs/public/${ORACLE_SID}.db.txt LE-ORADBS-13:/u01/app/grid/product/19.0.0.0/gridhome/crs/public
+scp /u01/app/grid/product/19.0.0.0/gridhome/crs/public/${ORACLE_SID}.db.txt LE-ORADBS-14:/u01/app/grid/product/19.0.0.0/gridhome/crs/public
+
+
+
+
+cat > /u01/app/grid/product/19.0.0.0/gridhome/crs/public/act_db_"${ORACLE_SID}".sh <<EOF 
+#!/bin/sh
+RC_FAILURE=1
+RC_OK=0
+export ORACLE_HOME=${ORACLE_HOME}
+export ORACLE_SID=${ORACLE_SID}
+export ORACLE_USER=oracle
+if [[ \$# -eq 0 ]]; then
+echo "usage: start stop check clean required"
+exit \$RC_FAILURE
+fi
+# Database start stop check
+# Start database
+if [[ "\$1" == "start" ]]; then
+#start DB now
+\$ORACLE_HOME/bin/sqlplus /nolog << EOF1
+connect / as sysdba
+startup
+quit
+EOF1
+fi
+# stop database
+if [[ "\$1" == "stop" ]]; then
+\$ORACLE_HOME/bin/sqlplus /nolog << EOF2
+connect / as sysdba
+shutdown immediate
+quit
+EOF2
+fi
+# Check database
+if [[ "\$1" == "check" ]]; then
+TARGET="ora_pmon_\$ORACLE_SID"
+ACTUAL="\$(ps -ae -o args | grep -w ora_pmon_\$ORACLE_SID | grep -v grep | grep -v comandi |sed -e 's/ *$//'| head -n 1)"
+if [[ "\$ACTUAL" == "\$TARGET" ]]; then
+exit \$RC_OK
+else
+exit \$RC_FAILURE
+fi
+fi
+# clean database
+if [[ "$1" == "clean" ]]; then
+PMON_PID="\$(ps -ae -o pid,args | grep -w ora_pmon_\$ORACLE_SID | grep -v grep | grep -v comandi | head -n 1 |cut -d' ' -f 1)"
+if [[ "x$PMON_PID" != "x" ]]; then
+\$ORACLE_HOME/bin/sqlplus /nolog << EOF3
+connect / as sysdba
+shutdown abort
+quit
+EOF3
+fi
+fi
+exit \$RC_OK
+EOF
+
+chmod 775 /u01/app/grid/product/19.0.0.0/gridhome/crs/public/act_db_"${ORACLE_SID}".sh
+
+
+create and modify files under /u01/app/grid/product/19.0.0.0/gridhome/crs/public/
+
+appvipcfg create -network=1 -ip=10.68.16.105 -vipname=ODBIST103DATIVIP -user=grid -group=oinstall
+appvipcfg create -network=1 -ip=10.68.16.106 -vipname=ODBIST103BACKUPVIP -user=grid -group=oinstall
+
+appvipcfg create -network=1 -ip=10.68.16.105 -vipname=ODBIST103DATIVIP -user=grid -group=oinstall
+appvipcfg create -network=1 -ip=10.68.16.106 -vipname=ODBIST103BACKUPVIP -user=grid -group=oinstall
+crsctl modify res ODBIST103DATIVIP -attr "HOSTING_MEMBERS= le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13, START_TIMEOUT=120"
+crsctl modify res ODBIST103BACKUPVIP -attr "HOSTING_MEMBERS= le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13, START_TIMEOUT=120"
+
+crsctl setperm resource ODBIST102DATIVIP -u user:oracle:rwx,user:grid:rwx,group:oinstall:rwx
+crsctl setperm resource ODBIST102BACKUPVIP -u user:oracle:rwx,user:grid:rwx,group:oinstall:rwx
+
+
+crsctl modify res ODBIST103DATIVIP -attr "HOSTING_MEMBERS= le-oradbs-11 le-oradbs-12 le-oradbs-13 le-oradbs-14, START_TIMEOUT=120"
+crsctl modify res ODBIST103BACKUPVIP -attr "HOSTING_MEMBERS= le-oradbs-11 le-oradbs-12 le-oradbs-13 le-oradbs-14, START_TIMEOUT=120"
+crsctl setperm resource ODBIST102DATIVIP -u user:oracle:rwx,user:grid:rwx,group:oinstall:rwx
+crsctl setperm resource ODBIST103BACKUPVIP -u user:oracle:rwx,user:grid:rwx,group:oinstall:rwx
+
+as grid:
+crsctl add res ODBIST103.listener -type cluster_resource -attr "START_TIMEOUT=15, START_DEPENDENCIES=hard(ODBIST103DATIVIP) pullup:always(ODBIST103DATIVIP), STOP_DEPENDENCIES=hard(ODBIST103DATIVIP), STOP_TIMEOUT=15, RESTART_ATTEMPTS=2, HOSTING_MEMBERS=le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13, CARDINALITY=1, AUTO_START=restore"
+crsctl modify res ODBIST103.listener -attr "ACTION_SCRIPT=/u01/app/grid/product/19.0.0.0/gridhome/crs/public/act_listener_ODBIST103.sh"
+crsctl add res ODBIST103bck.listener -type cluster_resource -attr "START_TIMEOUT=15, START_DEPENDENCIES=hard(ODBIST103BACKUPVIP) pullup:always(ODBIST103BACKUPVIP), STOP_DEPENDENCIES=hard(ODBIST103BACKUPVIP), STOP_TIMEOUT=15, RESTART_ATTEMPTS=2, HOSTING_MEMBERS=le-oradbs-11 le-oradbs-12 le-oradbs-13 le-oradbs-14, CARDINALITY=1, AUTO_START=restore"^C
+crsctl modify res ODBIST103bck.listener -attr "ACTION_SCRIPT=/u01/app/grid/product/19.0.0.0/gridhome/crs/public/act_listener_ODBIST103bck.sh"
+
+crsctl add resource ODBIST103.db -type cluster_resource -file "/u01/app/grid/product/19.0.0.0/gridhome/crs/public/ODBIST103.db.txt"
+crsctl setperm resource ODBIST103.db -u user:oracle:rwx,user:grid:rwx,group:oinstall:rwx
+
+crsctl modify res ODBIST103.db -attr "HOSTING_MEMBERS=le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13"
+crsctl modify res ODBIST103.listener -attr "HOSTING_MEMBERS=le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13"
+crsctl modify res ODBIST103BACKUPVIP -attr "HOSTING_MEMBERS=le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13"
+crsctl modify res ODBIST103DATIVIP -attr "HOSTING_MEMBERS=le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13"
+crsctl modify res ODBIST103bck.listener -attr "HOSTING_MEMBERS=le-oradbs-14 le-oradbs-11 le-oradbs-12 le-oradbs-13"
+
+modify  listeners in listener.ora
+"/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/listener.ora"
+
+LISTENER_ODBIST103 =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.68.16.105)(PORT = 12125))
+    #  (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC12047))
+    )
+  )
+
+
+LISTENER_ODBIST103BCK =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 10.68.16.104)(PORT = 12124))
+    )
+  )
+
+configure file
+
+
+scp /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103* LE-ORADBS-12:/u01/app/grid/product/19.0.0.0/gridhome/crs/public 
+scp /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103* LE-ORADBS-13:/u01/app/grid/product/19.0.0.0/gridhome/crs/public
+scp /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103* LE-ORADBS-14:/u01/app/grid/product/19.0.0.0/gridhome/crs/public
+
+as root on LE-ORADBS-11: 
+chown grid:oinstall /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103*
+chmod 771 /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103*
+
+
+as grid:
+ssh LE-ORADBS-12 "chmod 771 /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103*"
+ssh LE-ORADBS-13 "chmod 771 /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103*"
+ssh LE-ORADBS-14 "chmod 771 /u01/app/grid/product/19.0.0.0/gridhome/crs/public/*ODBIST103*"

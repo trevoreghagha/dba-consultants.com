@@ -1,0 +1,162 @@
+sqlplus -L sys/sysbkof@192.168.22.54:1521/BKOF as sysdba @glogin.sql
+
+SQL*Plus: Release 11.2.0.4.0 Production on Wed Feb 27 21:43:26 2019
+
+Copyright (c) 1982, 2013, Oracle.  All rights reserved.
+
+
+Connected to:
+Oracle9i Enterprise Edition Release 9.2.0.7.0 - 64bit Production
+With the Partitioning, OLAP and Oracle Data Mining options
+JServer Release 9.2.0.7.0 - Production
+
+
+no rows selected
+
+
+
+
+
+
+HOST_NAME            INSTANCE_NAME   STARTUP             STATUS  OPEN_MODE  TODAY               LOG_MODE     ARCHIVE LOGINS     VERS
+-------------------- --------------- ------------------- ------- ---------- ------------------- ------------ ------- ---------- ----
+lxdbs011             BKOF*           2018-05-13 01:08:48 OPEN    READ WRITE 2019-02-27 21:43:26 ARCHIVELOG   STARTED ALLOWED    9.2.
+
+
+
+
+21:43:26 192.168.22.54:1521/BKOF > ALTER PROCEDURE PEMDBAZ.DATA_REFRESH COMPILE;
+
+Warning: Procedure altered with compilation errors.
+
+Elapsed: 00:00:00.88
+22:03:57 192.168.22.54:1521/BKOF > show errors
+Errors for PROCEDURE PEMDBAZ.DATA_REFRESH:
+
+LINE/COL
+----------------------------------------------------------------------------------------------------------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------------------
+4/12
+PLS-00341: declaration of cursor 'C_DELTA_IU' is incomplete or malformed
+
+5/5
+PL/SQL: SQL Statement ignored
+
+6/36
+PL/SQL: ORA-00942: table or view does not exist
+
+
+LINE/COL
+----------------------------------------------------------------------------------------------------------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------------------
+18/18
+PL/SQL: Item ignored
+
+91/3
+PL/SQL: SQL Statement ignored
+
+92/42
+PL/SQL: ORA-00942: table or view does not exist
+
+
+LINE/COL
+----------------------------------------------------------------------------------------------------------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------------------
+98/3
+PL/SQL: SQL Statement ignored
+
+101/42
+PL/SQL: ORA-00942: table or view does not exist
+
+107/3
+PL/SQL: SQL Statement ignored
+
+
+LINE/COL
+----------------------------------------------------------------------------------------------------------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------------------
+109/9
+PL/SQL: ORA-00942: table or view does not exist
+
+139/3
+PL/SQL: SQL Statement ignored
+
+139/25
+PLS-00320: the declaration of the type of this expression is incomplete or malformed
+
+
+LINE/COL
+----------------------------------------------------------------------------------------------------------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------------------
+142/3
+PL/SQL: Statement ignored
+
+142/6
+PLS-00320: the declaration of the type of this expression is incomplete or malformed
+
+175/3
+PL/SQL: SQL Statement ignored
+
+
+LINE/COL
+----------------------------------------------------------------------------------------------------------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------------------
+176/15
+PLS-00320: the declaration of the type of this expression is incomplete or malformed
+
+176/15
+PL/SQL: ORA-00904: "MY_DELTA_IU"."ROWID": invalid identifier
+
+22:04:08 192.168.22.54:1521/BKOF >
+
+
+
+
+{}
+
+
+
+
+
+Errors for PROCEDURE PEMDBAZ.DATA_REFRESH:
+
+LINE/COL ERROR
+-------- -----------------------------------------------------------------
+4/12     PLS-00341: declaration of cursor 'C_DELTA_IU' is incomplete or
+         malformed
+
+5/5      PL/SQL: SQL Statement ignored
+6/36     PL/SQL: ORA-00942: table or view does not exist
+18/18    PL/SQL: Item ignored
+91/3     PL/SQL: SQL Statement ignored
+92/42    PL/SQL: ORA-00942: table or view does not exist
+98/3     PL/SQL: SQL Statement ignored
+101/42   PL/SQL: ORA-00942: table or view does not exist
+107/3    PL/SQL: SQL Statement ignored
+
+LINE/COL ERROR
+-------- -----------------------------------------------------------------
+109/9    PL/SQL: ORA-00942: table or view does not exist
+139/3    PL/SQL: SQL Statement ignored
+139/25   PLS-00320: the declaration of the type of this expression is
+         incomplete or malformed
+
+142/3    PL/SQL: Statement ignored
+142/6    PLS-00320: the declaration of the type of this expression is
+         incomplete or malformed
+
+175/3    PL/SQL: SQL Statement ignored
+176/15   PLS-00320: the declaration of the type of this expression is
+
+LINE/COL ERROR
+-------- -----------------------------------------------------------------
+         incomplete or malformed
+
+176/15   PL/SQL: ORA-00904: "MY_DELTA_IU"."ROWID": invalid identifier
+SQL>

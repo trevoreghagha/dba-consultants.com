@@ -1,0 +1,1690 @@
+GENERAL SETTINGS FOR VMWARE ISTANCES:
+isolation.tools.copy.disable          FALSE
+isolation.tools.paste.disable         FALSE
+isolation.tools.setGUIOptions.enable  TRUE
+
+
+10.0.0.0/8     IP addresses: 10.0.0.0 – 10.255.255.255
+172.16.0.0/12  IP addresses: 172.16.0.0 – 172.31.255.255
+192.168.0.0/16 IP addresses: 192.168.0.0 – 192.168.255.255   
+
+CONFIGURE ROUTER FOR THE ENTERPRISE
+ruoter1  172.31.255.10  192.168.200.2  10.255.90.2  172.31.255.2  router1.tretec.dom
+
+PUBLIC 
+nmcli connection modify ens161 ipv4.addresses '164.132.215.208/24' ipv4.method manual connection.autoconnect yes ipv4.gateway 51.178.20.254 ipv4.dns 8.8.8.8
+
+nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam0 ipv4.addresses '192.168.200.2/16' ipv4.method manual connection.autoconnect yes
+nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens192 master GNETTeam0
+nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens193 master GNETTeam0
+nmcli connection up GNETTeam0
+nmcli connection up GNETTeam0-port1
+nmcli connection up GNETTeam0-port2
+
+nmcli connection add type team con-name GNETTeam1 ifname GNETTeam1 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam1 ipv4.addresses '10.255.90.2/8' ipv4.method manual connection.autoconnect yes
+nmcli connection add type team-slave con-name GNETTeam1-port1 ifname ens224 master GNETTeam1
+nmcli connection add type team-slave con-name GNETTeam1-port2 ifname ens225 master GNETTeam1
+nmcli connection up GNETTeam1
+nmcli connection up GNETTeam1-port1
+nmcli connection up GNETTeam1-port2
+
+nmcli connection add type team con-name GNETTeam2 ifname GNETTeam2 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam2 ipv4.addresses '172.31.255.2/12' ipv4.method manual connection.autoconnect yes
+nmcli connection add type team-slave con-name GNETTeam2-port1 ifname ens256 master GNETTeam2
+nmcli connection add type team-slave con-name GNETTeam2-port2 ifname ens257 master GNETTeam2
+nmcli connection up GNETTeam2
+nmcli connection up GNETTeam2-port1
+nmcli connection up GNETTeam2-port2
+
+nmcli connection modify GNETTeam0 +ipv4.routes "10.225.90.0/24 192.168.200.2"
+nmcli connection modify GNETTeam0 +ipv4.routes "172.31.0.0/24 192.168.200.2"
+nmcli connection modify GNETTeam1 +ipv4.routes "192.168.0.0/24 10.255.90.2"
+nmcli connection modify GNETTeam1 +ipv4.routes "172.31.0.0/24 10.255.90.2"
+nmcli connection modify GNETTeam2 +ipv4.routes "192.168.0.0/24 172.31.255.2"
+nmcli connection modify GNETTeam2 +ipv4.routes "10.225.0.0/24 172.31.255.2"
+ 
+
+systemctl restart network
+
+echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+sysctl --system 
+
+firewall-cmd --permanent --add-masquerade
+firewall-cmd --reload
+firewall-cmd --list-all
+
+
+172.31.255.3  goldimage.tretec.dom
+
+
+CONFIGURE THE DNS FREEIPA SERVERtretec.dom
+
+172.31.255.4  dnsserver.tretec.dom
+
+nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam0 ipv4.addresses '172.31.255.4/12' ipv4.method manual connection.autoconnect yes ipv4.dns "8.8.8.8" ipv4.gateway 172.31.255.2
+nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens192 master GNETTeam0
+nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens193 master GNETTeam0
+nmcli connection up GNETTeam0
+nmcli connection up GNETTeam0-port1
+nmcli connection up GNETTeam0-port2
+
+
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config
+yum module list idm
+sudo yum module info idm:DL1
+sudo yum module info idm:DL1
+sudo yum -y install @idm:DL1
+sudo yum -y install @idm:DL1
+sudo yum -y install freeipa-server
+sudo yum install ipa-server-dns bind-dyndb-ldap
+hostname
+vi /etc/hosts
+Bobos_123
+ipa-server-install --setup-dns
+hostname
+hostnamectl hostname dnsserver.tretec.dom
+hostnamectl set-hostname dnsserver.tretec.dom
+exit
+vi /etc/hosts
+ipa-server-install --setup-dns
+sudo firewall-cmd --add-service={http,https,dns,ntp,freeipa-ldap,freeipa-ldaps} --permanent
+sudo firewall-cmd --reload
+
+if it fails 
+ipactl start --ignore-service-failure
+
+kinit admin
+password Bobos_123
+ipa dnsrecord-add tretec.dom exa1node1 --a-rec 10.255.90.10
+ipa dnsrecord-add tretec.dom exa1node2 --a-rec 10.255.90.11
+ipa dnsrecord-add tretec.dom exa1node1-priv --a-rec 172.31.255.10
+ipa dnsrecord-add tretec.dom exa1node2-priv --a-rec 172.31.255.11
+ipa dnsrecord-add tretec.dom exa1node1-vip --a-rec 10.255.90.12
+ipa dnsrecord-add tretec.dom exa1node2-vip --a-rec 10.255.90.13
+ipa dnsrecord-add tretec.dom exa1node-clu  --a-rec 10.255.90.14
+ipa dnsrecord-add tretec.dom exa1node-scan --a-rec 10.255.90.15
+ipa dnsrecord-add tretec.dom exa1node-scan --a-rec 10.255.90.16
+ipa dnsrecord-add tretec.dom exa1node-scan --a-rec 10.255.90.17
+ipa dnsrecord-add tretec.dom exa2node1 --a-rec 192.168.200.10
+ipa dnsrecord-add tretec.dom exa2node2 --a-rec 192.168.200.11
+ipa dnsrecord-add tretec.dom exa2node1-priv --a-rec 172.31.255.12
+ipa dnsrecord-add tretec.dom exa2node2-priv --a-rec 172.31.255.13
+ipa dnsrecord-add tretec.dom exa2node1-vip --a-rec 192.168.200.12
+ipa dnsrecord-add tretec.dom exa2node2-vip --a-rec 192.168.200.13
+ipa dnsrecord-add tretec.dom exa2node-clu  --a-rec 192.168.200.14
+ipa dnsrecord-add tretec.dom exa2node-scan --a-rec 192.168.200.15
+ipa dnsrecord-add tretec.dom exa2node-scan --a-rec 192.168.200.16
+ipa dnsrecord-add tretec.dom exa2node-scan --a-rec 192.168.200.17
+ipa dnsrecord-add tretec.dom oemnode --a-rec 172.31.255.200
+ipa dnsrecord-add tretec.dom iscsiserver --a-rec 172.31.255.5
+ipa dnsrecord-add tretec.dom genericserver --a-rec 172.31.255.7
+
+kinit admin
+Bobos#123
+
+
+[root@dnsserver ~]# ipa dnsrecord-find
+Zone name: tretec.dom
+  Record name: @
+  NS record: dnsserver.tretec.dom.
+
+  Record name: _kerberos
+  TXT record: "TRETEC.DOM"
+
+  Record name: _kerberos._tcp
+  SRV record: 0 100 88 dnsserver.tretec.dom.
+
+  Record name: _kerberos-master._tcp
+  SRV record: 0 100 88 dnsserver.tretec.dom.
+
+  Record name: _kpasswd._tcp
+  SRV record: 0 100 464 dnsserver.tretec.dom.
+
+  Record name: _ldap._tcp
+  SRV record: 0 100 389 dnsserver.tretec.dom.
+
+  Record name: _kerberos._udp
+  SRV record: 0 100 88 dnsserver.tretec.dom.
+
+  Record name: _kerberos-master._udp
+  SRV record: 0 100 88 dnsserver.tretec.dom.
+
+  Record name: _kpasswd._udp
+  SRV record: 0 100 464 dnsserver.tretec.dom.
+
+  Record name: _ntp._udp
+  SRV record: 0 100 123 dnsserver.tretec.dom.
+
+  Record name: cluster1
+  A record: 10.255.90.110
+
+  Record name: cluster2
+  A record: 10.255.90.111
+
+  Record name: db2server
+  A record: 172.31.255.61
+
+  Record name: dnsserver
+  A record: 172.31.255.4
+  SSHFP record: 1 1 AAEBC0E80B66758E4E7166DED95D269EE2D3796F, 1 2 7264B4AACB275B7D1567EB62B7673AC2859EB0067937FA8DB0476E75 BC42CBB5, 3 1 E19634A4A955A09024B2FD6DFB675A98C6B754D2, 3 2
+                4720A6B272F0D99978F68EC3AD68F8173474F92AB8393AB7CEEA58B7 B612895E, 4 1 15E34B741F698E51ACACFC668858B91AB26EF5A6, 4 2 E596359EA1636C359E74849A128DF3CD7C0CC5C495901FB250E4B8E9 06F9F8D1
+
+  Record name: exa1node-clu
+  A record: 10.255.90.14
+
+  Record name: exa1node-scan
+  A record: 10.255.90.15, 10.255.90.16, 10.255.90.17
+
+  Record name: exa1node1
+  A record: 10.255.90.10
+
+  Record name: exa1node1-priv
+  A record: 172.31.255.10
+
+  Record name: exa1node1-vip
+  A record: 10.255.90.12
+
+  Record name: exa1node2
+  A record: 10.255.90.11
+
+  Record name: exa1node2-priv
+  A record: 172.31.255.11
+
+  Record name: exa1node2-vip
+  A record: 10.255.90.13
+
+  Record name: exa2node-clu
+  A record: 192.168.200.14
+
+  Record name: exa2node-scan
+  A record: 192.168.200.15, 192.168.200.16, 192.168.200.17
+
+  Record name: exa2node1
+  A record: 192.168.200.10
+
+  Record name: exa2node1-priv
+  A record: 172.31.255.12
+
+  Record name: exa2node1-vip
+  A record: 192.168.200.12
+
+  Record name: exa2node2
+  A record: 192.168.200.11
+
+  Record name: exa2node2-priv
+  A record: 172.31.255.13
+
+  Record name: exa2node2-vip
+  A record: 192.168.200.13
+
+  Record name: genericserver
+  A record: 172.31.255.7
+
+  Record name: ipa-ca
+  A record: 172.31.255.4
+
+  Record name: iscsiserver
+  A record: 172.31.255.5
+
+  Record name: node2
+  A record: 172.31.255.62
+
+  Record name: oemnode
+  A record: 172.31.255.200
+
+  Record name: postgreslServer
+  A record: 172.31.255.64
+-----------------------------
+Number of entries returned 36
+-----------------------------
+
+
+
+
+
+firewall-cmd --permanent --add-service freeipa-ldap
+firewall-cmd --permanent --add-service freeipa-ldaps
+firewall-cmd --permanent --add-service freeipa-dns
+firewall-cmd --reload
+
+
+
+
+
+
+CONFIGURE ISCSI TARGET SERVER
+
+172.31.255.5  iscsiserver1.tretec.dom
+
+nmcli connection delete ens161
+nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam0 ipv4.addresses '172.31.255.5/12' ipv4.method manual connection.autoconnect yes ipv4.dns "172.31.255.4 8.8.8.8" ipv4.gateway 172.31.255.2
+nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens161 master GNETTeam0
+nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens192 master GNETTeam0
+nmcli connection up GNETTeam0
+nmcli connection up GNETTeam0-port1
+nmcli connection up GNETTeam0-port2
+
+
+fdisk /dev/sdb
+partprobe
+
+pvcreate /dev/sdb1
+
+vgcreate Luns-vg /dev/sdb1
+
+lvcreate -L 25G -n Luns-lvm1 Luns-vg
+lvcreate -L 25G -n Luns-lvm2 Luns-vg
+lvcreate -L 25G -n Luns-lvm3 Luns-vg
+lvcreate -L 25G -n Luns-lvm4 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm5 Luns-vg
+lvcreate -L 25G -n Luns-lvm6 Luns-vg
+lvcreate -L 25G -n Luns-lvm7 Luns-vg
+lvcreate -L 25G -n Luns-lvm8 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm9 Luns-vg
+lvcreate -L 25G -n Luns-lvm10 Luns-vg
+lvcreate -L 25G -n Luns-lvm11 Luns-vg
+lvcreate -L 25G -n Luns-lvm12 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm13 Luns-vg
+lvcreate -L 25G -n Luns-lvm14 Luns-vg
+lvcreate -L 25G -n Luns-lvm15 Luns-vg
+lvcreate -L 25G -n Luns-lvm16 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm17 Luns-vg
+lvcreate -L 25G -n Luns-lvm18 Luns-vg
+lvcreate -L 25G -n Luns-lvm19 Luns-vg
+lvcreate -L 25G -n Luns-lvm20 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm21 Luns-vg
+lvcreate -L 25G -n Luns-lvm22 Luns-vg
+lvcreate -L 25G -n Luns-lvm23 Luns-vg
+lvcreate -L 25G -n Luns-lvm24 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm25 Luns-vg
+lvcreate -L 25G -n Luns-lvm26 Luns-vg
+lvcreate -L 25G -n Luns-lvm27 Luns-vg
+lvcreate -L 25G -n Luns-lvm28 Luns-vg
+
+lvcreate -L 25G -n Luns-lvm29 Luns-vg
+lvcreate -L 25G -n Luns-lvm30 Luns-vg
+lvcreate -L 25G -n Luns-lvm31 Luns-vg
+lvcreate -L 25G -n Luns-lvm32 Luns-vg
+
+dnf install targetcli -y
+systemctl start target
+systemctl enable target
+
+systemctl restart target
+firewall-cmd --add-port=3260/tcp --permanent
+firewall-cmd --reload
+iqn.1991-05.com.microsoft:sqlsrvnode1.wins.tretec.dom
+
+targetcli
+
+/> cd /backstores/block
+/backstores/block> ls
+o- block ...................................................................................................... [Storage Objects: 0]
+/backstores/block> 
+create name=LUN_1 dev=/dev/Luns-vg/Luns-lvm1
+create name=LUN_2 dev=/dev/Luns-vg/Luns-lvm2
+create name=LUN_3 dev=/dev/Luns-vg/Luns-lvm3
+create name=LUN_4 dev=/dev/Luns-vg/Luns-lvm4	Line  207: dnf install targetcli -y
+
+create name=LUN_5 dev=/dev/Luns-vg/Luns-lvm5
+create name=LUN_6 dev=/dev/Luns-vg/Luns-lvm6
+create name=LUN_7 dev=/dev/Luns-vg/Luns-lvm7
+create name=LUN_8 dev=/dev/Luns-vg/Luns-lvm8
+Created block storage object LUN_1 using /dev/Luns-vg/Luns-lvm1.
+/backstores/block> create name=LUN_2 dev=/dev/Luns-vg/Luns-lvm2
+Created block storage object LUN_2 using /dev/Luns-vg/Luns-lvm2.
+/backstores/block> create name=LUN_3 dev=/dev/Luns-vg/Luns-lvm3
+Created block storage object LUN_3 using /dev/Luns-vg/Luns-lvm3.
+/backstores/block> create name=LUN_4 dev=/dev/Luns-vg/Luns-lvm4
+Created block storage object LUN_4 using /dev/Luns-vg/Luns-lvm4.
+/backstores/block> create name=LUN_5 dev=/dev/Luns-vg/Luns-lvm5
+Created block storage object LUN_5 using /dev/Luns-vg/Luns-lvm5.
+/backstores/block> create name=LUN_6 dev=/dev/Luns-vg/Luns-lvm6
+Created block storage object LUN_6 using /dev/Luns-vg/Luns-lvm6.
+/backstores/block> create name=LUN_7 dev=/dev/Luns-vg/Luns-lvm7
+Created block storage object LUN_7 using /dev/Luns-vg/Luns-lvm7.
+/backstores/block> create name=LUN_8 dev=/dev/Luns-vg/Luns-lvm8
+Created block storage object LUN_8 using /dev/Luns-vg/Luns-lvm8.
+/backstores/block> cd /iscsi
+/iscsi> create iqn.2022-04.dom.tretec:exa1
+Created target iqn.2020-08.dom.tretec:exa1.
+Created TPG 1.
+Global pref auto_add_default_portal=true
+Created default portal listening on all IPs (0.0.0.0), port 3260.
+/iscsi> create iqn.2020-08.dom.tretec:exa2
+Created target iqn.2020-08.dom.tretec:exa2.
+Created TPG 1.
+Global pref auto_add_default_portal=true
+Created default portal listening on all IPs (0.0.0.0), port 3260.
+/iscsi> cd /iscsi/iqn.2020-08.dom.tretec:exa1/tpg1/acls
+/iscsi/iqn.20...xa1/tpg1/acls> create iqn.2020-08.dom.tretec:exa1:node1node2
+Created Node ACL for iqn.2020-08.dom.tretec:exa1:node1node2
+/iscsi/iqn.20...xa1/tpg1/acls> cd ../luns
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_1 lun1
+Created LUN 1.
+Created LUN 1->1 mapping in node ACL iqn.2020-08.dom.tretec:exa1:node1node2
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_2 lun2
+Created LUN 2.
+Created LUN 2->2 mapping in node ACL iqn.2020-08.dom.tretec:exa1:node1node2
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_3 lun3
+Created LUN 3.
+Created LUN 3->3 mapping in node ACL iqn.2020-08.dom.tretec:exa1:node1node2
+/iscsi/iqn.20...xa1/tpg1/luns> create /backstores/block/LUN_4 lun4
+Created LUN 4.
+Created LUN 4->4 mapping in node ACL iqn.2020-08.dom.tretec:exa1:node1node2
+/iscsi/iqn.20...xa1/tpg1/luns> cd /iscsi
+/iscsi> cd /iscsi/iqn.2020-08.dom.tretec:exa2/tpg1/acls
+/iscsi/iqn.20...xa2/tpg1/acls> create iqn.2020-08.dom.tretec:exa2:node1node2
+Created Node ACL for iqn.2020-08.dom.tretec:exa2:node1node2
+/iscsi/iqn.20...xa2/tpg1/acls> cd ../luns
+/iscsi/iqn.20...xa2/tpg1/luns> create /backstores/block/LUN_5 lun5
+Created LUN 5.
+Created LUN 5->5 mapping in node ACL iqn.2020-08.dom.tretec:exa2:node1node2
+/iscsi/iqn.20...xa2/tpg1/luns> create /backstores/block/LUN_6 lun6
+Created LUN 6.
+Created LUN 6->6 mapping in node ACL iqn.2020-08.dom.tretec:exa2:node1node2
+/iscsi/iqn.20...xa2/tpg1/luns> create /backstores/block/LUN_7 lun7
+Created LUN 7.
+Created LUN 7->7 mapping in node ACL iqn.2020-08.dom.tretec:exa2:node1node2
+/iscsi/iqn.20...xa2/tpg1/luns> create /backstores/block/LUN_8 lun8
+Created LUN 8.
+Created LUN 8->8 mapping in node ACL iqn.2020-08.dom.tretec:exa2:node1node2
+/iscsi/iqn.20...xa2/tpg1/luns>
+/iscsi/iqn.20...xa2/tpg1/luns> cd /
+/> saveconfig
+Last 10 configs saved in /etc/target/backup/.
+Configuration saved to /etc/target/saveconfig.json
+/> exit
+Global pref auto_save_on_exit=true
+Last 10 configs saved in /etc/target/backup/.
+Configuration saved to /etc/target/saveconfig.json
+
+
+
+
+
+
+
+
+
+CONFIGURE 4 ORACLE LINUX 7 SERVERS FOR TWO 2 NODE RAC MACHINES FOR IMPLEMENTING DATAGUARD.
+
+PRIMARY RAC NODES: exa1node1, exa1node2          
+STANDBY RAC NODES: exa2node1, exa2node2
+
+#EXA1
+# Public
+10.255.90.10   exa1node1.tretec.dom       exa1node1
+10.255.90.11   exa1node2.tretec.dom       exa1node2
+# Private
+10.254.90.130   exa1node1-priv.tretec.dom  exa1node1-priv
+10.254.90.131   exa1node2-priv.tretec.dom  exa1node2-priv
+# Cluster
+10.255.90.12   exa1node-clu.tretec.dom       exa1node1
+# Virtual
+10.255.90.13   exa1node1-vip.tretec.dom   exa1node1-vip
+10.255.90.14   exa1node2-vip.tretec.dom   exa1node2-vip
+# SCAN
+#10.255.90.15   exa1node-scan.tretec.dom  exa1node-scan
+#10.255.90.16   exa1node-scan.tretec.dom  exa1node-scan
+#10.255.90.17   exa1node-scan.tretec.dom  exa1node-scan
+
+#EXA2
+10.255.90.30   exa2node1.tretec.dom       exa2node1
+10.255.90.31   exa2node2.tretec.dom       exa2node2
+# Private
+10.254.90.30   exa2node1-priv.tretec.dom  exa2node1-priv
+10.254.90.31   exa2node2-priv.tretec.dom  exa2node2-priv
+# Cluster
+10.255.90.32   exa2node-clu.tretec.dom       exa2node-clu
+# Virtual
+10.255.90.33   exa2node1-vip.tretec.dom   exa2node1-vip
+10.255.90.34   exa2node2-vip.tretec.dom   exa2node2-vip
+# SCAN
+#10.255.90.35   exa2node-scan.tretec.dom  exa2node-scan
+#10.255.90.36   exa2node-scan.tretec.dom  exa2node-scan
+#10.255.90.37   exa2node-scan.tretec.dom  exa2node-scan
+
+#DR
+172.31.255.40    drnode.tretec.dom       drnode
+
+
+CONFIGURATION ON EACH NODE
+
+
+CONFIGURE FILE SYSTEM FOR ORACLE BINARIES
+
+fdisk /dev/sdb
+
+vgcreate OracleVg /dev/sdb1
+lvcreate -l 25599 -n OracleLv OracleVg
+
+mkfs.xfs /dev/OracleVg/OracleLv
+
+mount /dev/OracleVg/OracleLv /u01
+
+cat /etc/fstab
+/dev/OracleVg/OracleLv  /u01                    xfs     defaults        0 0
+
+INSTALL ISCSI INITIATOR
+yum install iscsi-initiator-utils -y
+
+AUTOMATICALLY INSTALLLING ORACLE PREREQUISITES
+yum install -y oracle-database-preinstall-19c
+
+CONFIGURING  ORACLE AND GRID USERS AND DIRECTORY PERMISSIONS
+useradd -g oinstall -G dba,oper,backupdba,dgdba,kmdba,racdba grid
+passwd grid
+passwd oracle
+usermod -a -G dba,oper,backupdba,dgdba,kmdba,racdba oracle
+mkdir /u01/app/grid/19.0.0.0
+mkdir -p /u01/app/grid/19.0.0.0
+mkdir -p /u01/app/oracle/product/19.0.0.0/dbhome1
+chown -R grid:oinstall /u01
+chmod -R 775 /u01
+chown -R oracle:oinstall /u01/app/oracle/product
+chmod -R 775 /u01/app/oracle/product/
+
+
+SHUT DOWN THE VIRTUSAL MACHINE AND CLONE 3 COPIES OF THE VIRTUAL MACCHINE
+
+
+PUT ON THE VIRTUAL MACCHINE AND CONFIGURE EACH OF THE NODES WITH THE APPROPIATE NAMES, IPs, LUNs, .bash_profile files etc
+
+hostnamectl set-hostname exa1node1.tretec.dom
+
+nmcli connection add type team con-name GNETTeam0 ifname GNETTeam0 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam0 ipv4.addresses '10.255.90.10/24' ipv4.method manual connection.autoconnect yes ipv4.dns "172.31.255.4 8.8.8.8" ipv4.gateway 10.255.90.2
+nmcli connection add type team-slave con-name GNETTeam0-port1 ifname ens160 master GNETTeam0
+nmcli connection add type team-slave con-name GNETTeam0-port2 ifname ens161 master GNETTeam0
+nmcli connection up GNETTeam0
+nmcli connection up GNETTeam0-port1
+nmcli connection up GNETTeam0-port2
+nmcli
+nmcli connection add type team con-name GNETTeam1 ifname GNETTeam1 config '{"runner": {"name":"activebackup"}}'
+nmcli connection modify GNETTeam1 ipv4.addresses '172.31.255.10/24' ipv4.method manual connection.autoconnect yes
+nmcli connection add type team-slave con-name GNETTeam1-port1 ifnam0e ens192 master GNETTeam1
+nmcli connection add type team-slave con-name GNETTeam1-port2 ifname ens193 master GNETTeam1
+nmcli connection up GNETTeam1
+nmcli connection up GNETTeam1-port1
+nmcli connection add type team-slave con-name GNETTeam1-port1 ifname ens192 master GNETTeam1
+nmcli connection add type team-slave con-name GNETTeam1-port2 ifname ens193 master GNETTeam1
+nmcli connection up GNETTeam1
+nmcli connection up GNETTeam1-port1
+nmcli connection up GNETTeam1-port2
+
+
+[root@exa1node1 ~]# cat /etc/iscsi/initiatorname.iscsi
+InitiatorName=iqn.2020-08.dom.tretec:exa1:node1node2
+InitiatorName=iqn.2023-09.dom.tretec:nodes:luns
+iscsiadm -m discovery -t st -p 172.31.255.5
+
+systemctl restart iscsid.service
+systemctl enable iscsid.service
+
+
+reboot
+
+fdisk /dev/sdc
+fdisk /dev/sdd
+fdisk /dev/sde
+fdisk /dev/sdf
+partprobe
+
+for i in {b..d}; do echo /dev/sd$i; /usr/lib/udev/scsi_id -g -u -d /dev/sd$i; echo "__________________________________"; done
+
+[root@exa1node1 ~]# cat /etc/udev/rules.d/99-oracle-asmdevices.rules
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="3600140580040d72e48542cfaec70af65", SYMLINK+="asmdisk01", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="3600140535f7166ffada4b8a85e25cf74", SYMLINK+="asmdisk02", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="3600140521015785a14946b9b823b2f65", SYMLINK+="asmdisk03", OWNER="grid", GROUP="oinstall", MODE="0660"
+KERNEL=="sd?1", SUBSYSTEM=="block", PROGRAM=="/usr/lib/udev/scsi_id -g -u -d /dev/$parent", RESULT=="3600140587246ff2813f4f6399648adf5", SYMLINK+="asmdisk04", OWNER="grid", GROUP="oinstall", MODE="0660"
+
+scp /etc/udev/rules.d/99-oracle-asmdevices.rules exa1node2:/etc/udev/rules.d
+
+udevadm control --reload-rules && udevadm trigger
+ls /dev/asm*
+ 
+systemctl stop firewalld
+systemctl disable firewalld
+
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config
+
+
+systemctl enable chronyd.service
+systemctl restart chronyd.service
+chronyc -a ‘burst 4/4’
+chronyc -a makestep
+
+
+CONFIGURE SSH PASSWORDLESS CONNECTIVITY FOR oracle and grid users BETWEEN ALL FOUR NODES
+
+
+su - grid
+
+[grid@exa1node1 ~]$ cat .bash_profile
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+fi
+
+
+
+
+
+
+# User specific environment and startup programs
+
+PATH=$PATH:$HOME/.local/bin:$HOME/bin
+
+export PATH
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa1node1.tretec.dom
+export ORACLE_UNQNAME=+ASM
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/app/grid/19.0.0.0
+export ORACLE_SID=+ASM1
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+
+
+START INSTALLATION OF GRID INFRASTRUCTURE
+
+ unzip linuxx64_12201_grid_home.zip -d $ORACLE_HOME
+ 
+ 
+[grid@exa1node1 ~]$ cat /u01/app/grid/19.0.0.0/install/response/gridsetup.rsp | grep -v ^# | grep -v =$ | grep -v ^$
+oracle.install.responseFileVersion=/oracle/install/rspfmt_crsinstall_response_schema_v12.2.0
+INVENTORY_LOCATION=/u01/app/oracle/OraInventory
+oracle.install.option=CRS_CONFIG
+ORACLE_BASE=/u01/app/oracle
+oracle.install.asm.OSDBA=oinstall
+oracle.install.asm.OSOPER=oinstall
+oracle.install.asm.OSASM=oinstall
+oracle.install.crs.config.gpnp.scanName=exa1node-scan
+oracle.install.crs.config.gpnp.scanPort=1521
+oracle.install.crs.config.ClusterConfiguration=STANDALONE
+oracle.install.crs.config.configureAsExtendedCluster=false
+oracle.install.crs.config.clusterName=exa1node-clu
+oracle.install.crs.config.gpnp.configureGNS=false
+oracle.install.crs.config.autoConfigureClusterNodeVIP=false
+oracle.install.crs.config.clusterNodes=exa1node1:exa1node1-vip:HUB,exa1node2:exa1node2-vip:HUB
+oracle.install.crs.config.networkInterfaceList=GNETTeam0:10.255.90.0:1,GNETTeam1:172.31.255.0:5
+oracle.install.asm.configureGIMRDataDG=false
+oracle.install.asm.storageOption=ASM
+oracle.install.asm.SYSASMPassword=Bobos_123
+oracle.install.asm.diskGroup.name=DATA
+oracle.install.asm.diskGroup.redundancy=EXTERNAL
+oracle.install.asm.diskGroup.AUSize=4
+oracle.install.asm.diskGroup.disks=/dev/asmdisk01,/dev/asmdisk02,/dev/asmdisk03
+oracle.install.asm.diskGroup.diskDiscoveryString=/dev/asm*
+oracle.install.asm.monitorPassword=Bobos_123
+oracle.install.crs.rootconfig.executeRootScript=true
+oracle.install.crs.rootconfig.configMethod=ROOT
+
+
+RUN RUNCLUVFY UTILITY
+./runcluvfy.sh stage -pre crsinst -fixup -responseFile /u01/app/grid/19.0.0.0/install/response/gridsetup.rsp
+
+START SETUP
+./gridSetup.sh -silent -skipPrereqs -responseFile /u01/app/grid/19.0.0.0/install/response/gridsetup.rsp
+
+
+CREATE DISKGROUP RECO
+ASMCMD mkdg '<dg name="RECO" redundancy="external"><dsk string="/dev/asmdisk04"/></dg>'
+ASMCMD chdg '<chdg name="RECO"><add><dsk string="/dev/asmdisk05"/></add></chdg>'
+
+
+INSTALL ORACLE SOFTWARE ONLY
+
+su - oracle
+
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa1node1.tretec.dom
+export ORACLE_UNQNAME=EXA1DB
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/19.0.0.0/dbhome1/
+export ORACLE_SID=EXA1DB1
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+INSTALL DATABASE SOFTWARE
+
+unzip LINUX.X64_193000_db_home.zip -d $ORACLE_HOME
+
+ grep -v =$  /u01/app/oracle/product/19.0.0.0/dbhome1/install/response/db_install.rsp | grep -v ^# | grep -v ^$
+
+./runInstaller -ignorePrereq -waitforcompletion -silent                                                  \
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v19.0.0              \
+oracle.install.option=INSTALL_DB_SWONLY                                                                  \
+UNIX_GROUP_NAME=oinstall                                                                                 \
+INVENTORY_LOCATION=/u01/app/oracle/OraInventory                                                          \
+ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1                                                     \
+ORACLE_BASE=/u01/app/oracle                                                                              \
+oracle.install.db.InstallEdition=EE                                                                      \
+oracle.install.db.OSDBA_GROUP=oinstall                                                                   \
+oracle.install.db.OSOPER_GROUP=oinstall                                                                  \
+oracle.install.db.OSBACKUPDBA_GROUP=oinstall                                                             \
+oracle.install.db.OSDGDBA_GROUP=oinstall                                                                 \
+oracle.install.db.OSKMDBA_GROUP=oinstall                                                                 \
+oracle.install.db.OSRACDBA_GROUP=oinstall                                                                \
+oracle.install.db.rootconfig.executeRootScript=true                                                      \
+oracle.install.db.rootconfig.configMethod=ROOT                                                           \
+oracle.install.db.CLUSTER_NODES=exa1node1,exa1node2                                                      \
+SELECTED_LANGUAGES=en,en_GB                                                                              \
+SECURITY_UPDATES_VIA_MYORACLESUPPORT=false                                                               \
+DECLINE_SECURITY_UPDATES=true
+	
+
+CREATE DATABASE
+
+
+[oracle@exa1node1 ~]$ cat .EXA1DB1.profile
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa1node1.tretec.dom
+export ORACLE_UNQNAME=EXA1DB
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/19.0.0.0/dbhome1
+export ORACLE_SID=EXA1DB1
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+
+[oracle@exa1node1 dbca]$ grep -v ^# /u01/app/oracle/product/19.0.0.0/dbhome1/assistants/dbca/dbca.rsp | grep -v =$ | grep -v ^$
+responseFileVersion=/oracle/assistants/rspfmt_dbca_response_schema_v19.0.0
+gdbName=EXA1DB
+sid=EXA1DB
+databaseConfigType=RAC
+nodelist=exa1node1,exa1node2
+templateName=General_Purpose.dbc
+sysPassword=Bobos_123
+systemPassword=Bobos_123
+emExpressPort=5500
+dbsnmpPassword=Bobos_123
+storageType=ASM
+diskGroupName=DATA
+asmsnmpPassword=Bobos_123
+databaseType=MULTIPURPOSE
+automaticMemoryManagement=FALSE
+totalMemory=3072
+
+
+dbca -createDatabase -ignorePreReqs -silent -responseFile /u01/app/oracle/product/19.0.0.0/dbhome1/assistants/dbca/dbca.rsp
+
+
+or
+
+dbca -silent -createDatabase -gdbName EXA1DB -sid EXA1DB  \
+-templateName General_Purpose.dbc                         \
+-databaseConfigType RAC                                   \
+-nodelist exa1node1,exa1node2                             \
+-sysPassword Bobos_123                                    \
+-systemPassword Bobos_123                                 \
+-emExpressPort 5500                                       \
+-dbsnmpPassword Bobos_123                                 \
+-storageType ASM                                          \
+-diskGroupName DATA                                       \
+-asmsnmpPassword Bobos_123                                \
+-databaseType MULTIPURPOSE                                \
+-automaticMemoryManagement FALSE                          \
+-totalMemory 3072                                         \                                     
+-ignorePreReqs  
+
+
+
+
+
+
+CONFIGURE DATAGUARD WITH STANDBY  
+
+
+
+
+ON PRIMARY RAC DATABASE
+
+IMPLEMENT 3 REDO LOGFILES ON EACH THREAD
+
+SQL> SELECT thread#, GROUP#, BYTES/1024/1024 FROM V$LOG;
+   THREAD#     GROUP# BYTES/1024/1024
+---------- ---------- ---------------
+         1          1             200
+         1          2             200
+         2          3             200
+         2          4             200
+SQL> ALTER DATABASE ADD LOGFILE THREAD 1 SIZE 200M;
+Database altered.
+SQL> ALTER DATABASE ADD LOGFILE THREAD 2  SIZE 200M;
+Database altered.
+
+ADD 4 STANDBY REDO LOGFILES ON EACH THREAD
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 1 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 1 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 1 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 1 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 2 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 2 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 2 SIZE 200M;
+ALTER DATABASE ADD STANDBY LOGFILE THREAD 2 SIZE 200M;
+
+ADD STATIC LISTENERS ON 2 PRIMARY NODES AND 2 SECONDARY NODES:
+STATIC LISTENERS ON 4 nodes
+
+on exa1node1:
+SID_LIST_LISTENER =
+ (SID_LIST =
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA1DB.tretec.dom)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA1DB1)
+   )
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA1DB_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA1DB1)
+   )
+ )
+
+on exa1node2:
+SID_LIST_LISTENER =
+ (SID_LIST =
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA1DB)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA1DB2)
+   )
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA1DB_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA1DB2)
+   )
+ )
+ 
+on exa2node1:
+SID_LIST_LISTENER =
+ (SID_LIST =
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA2DB)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA2DB1)
+   )
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA2DB_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA2DB1)
+   )
+ )
+ 
+on exa2node2:
+SID_LIST_LISTENER =
+ (SID_LIST =
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA2DB)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA2DB2)
+   )
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXA2DB_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = EXA2DB2)
+   )
+ )
+
+lsnrctl reload
+
+ADD THIS ENTRIES ON ALL tnsnames files ON BOTH PRIMARY AND SECONDARY NODES
+ 
+EXA1DB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa1node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXA1DB)
+    )
+  )
+  
+EXA2DB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa2node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXA2DB)
+    )
+  )
+  
+##NOTE ON NODE WHERE DUPLICATE WILL BE PERFORMED ADD. ON exa2node1 ADDED THIS TO tnsnames.ora file
+EXA2DB1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa2node1)(PORT = 1521))
+     (CONNECT_DATA =
+     (SERVER = DEDICATED)
+     (SERVICE_NAME = EXA2DB)UR=A)
+     )
+  )
+
+
+RUN THESE COMMANDS ON THE PRIMARY DATABASE:
+
+--IMPLEMENT FORCED LOGGING
+alter database force logging;
+--ACTIVATE AUTOMATIC STANDBY LOG MANAGEMENT
+alter system set STANDBY_FILE_MANAGEMENT=AUTO scope=both sid='*';
+--ENSURE YOU CAN LOGGING REMOTELY WITH PASSWORD FILE TO PERFORM ADMINISTRATIVE TASKS LIKE STARTUP SHUTDOWN
+alter system set REMOTE_LOGIN_PASSWORDFILE=EXCLUSIVE scope=spfile sid='*';
+--ENSURE ARCHIVED LOG FILES ARE ECLUSIVELY NAMED ON ALL THREADS AND NODES
+alter system set LOG_ARCHIVE_FORMAT='%d_%t_%s_%r.arc' scope=spfile sid='*';
+--APPLICABLE WHEN DESTINATION FILES ARE DIFFERENT
+alter system set DB_FILE_NAME_CONVERT='+DATASTBY','+DATA','+RECOSTBY','+RECO' scope=spfile sid='*';
+alter system set LOG_FILE_NAME_CONVERT='+DATASTBY','+DATA','+RECOSTBY','+RECO' scope=spfile sid='*';
+--ACTIVATE FLASHBACK ON DATABASE:
+alter database flashback ON;
+
+THESE STEPS NOT NECESSARY WHEN USING THE DATAGUARD BROKER:
+alter system set LOG_ARCHIVE_CONFIG='DG_CONFIG=(EXA1DB,EXA2DB)' scope=both sid='*';
+alter system set LOG_ARCHIVE_DEST_1= 'LOCATION=USE_DB_RECOVERY_FILE_DEST VALID_FOR=(ALL_LOGFILES,ALL_ROLES) DB_UNIQUE_NAME=EXA1DB' scope=both sid='*';
+alter system set LOG_ARCHIVE_DEST_2= 'SERVICE=EXA2DB ASYNC  VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE)   DB_UNIQUE_NAME=EXA2DB' scope=both sid='*';
+
+REBOOT THE PRIMARY RAC DATABASE
+srvctl stop database -d EXA1DB
+srvctl start database -d EXA1DB
+
+
+AS grid user get password file OF THE PRIMARY DATABASE
+asmcmd  pwget --dbuniquename 'EXA1DB';
++DGDATA/EXA1DB/PASSWORD/pwdexa1db.270.1032198029
+	
+copying +DGDATA/EXA1DB/PASSWORD/pwdexa1db.270.1032198029 -> /tmp/pwdexa1db.270.1032198029
+chmod 777 /tmp/pwdexa1db.270.1032198029
+
+COPY password file to the two standby nodes:
+scp /tmp/pwdexa1db.270.1032198029 exa2node1:/u01/app/oracle/product/19.0.0.0/dbhome1/dbs/orapwEXA2DB1
+scp /tmp/pwdexa1db.270.1032198029 exa2node2:/u01/app/oracle/product/19.0.0.0/dbhome1/dbs/orapwEXA2DB2
+
+
+
+ONSTANDBY NODE exa2node1
+
+AS oracle USER SET environment
+
+export TMP=/tmp
+export TMPDIR=$TMP
+export SQLPATH=/oracle_share/dba/scripts
+export ORACLE_HOSTNAME=exa2node1.tretec.dom
+export ORACLE_UNQNAME=EXA2DB
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=$ORACLE_BASE/product/19.0.0.0/dbhome1
+export ORACLE_SID=EXA2DB1
+export ORACLE_TERM=xterm
+export BASE_PATH=/usr/sbin:$PATH
+export PATH=$ORACLE_HOME/bin:$BASE_PATH
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib
+
+
+
+cat /u01/app/oracle/product/19.0.0.0/dbhome1/dbs/initEXA2DB1
+db_name='EXA1DB'
+
+
+startup nomount
+
+
+DULPLICATE THE PRIMARY DATABASE FOR STANDBY
+
+CREATE AUDIT DIRECTORY ON THE TWO SECONDARY NODES
+
+exa2node1:  mkdir /u01/app/oracle/admin/EXA2DB/adump
+exa2node2:  mkdir /u01/app/oracle/admin/EXA2DB/adump
+
+rman target sys/Bobos_123@EXA1DB AUXILIARY sys/Bobos_123@EXA2DB1
+run{
+duplicate target database for standby from active database
+spfile
+ set db_unique_name='EXA2DB'
+ set instance_name='EXA2DB1'
+ set instance_number='1'
+ set control_files='+DATASTBY','+RECOSTBY'
+ set db_file_name_convert='+DATA','+DATASTBY','+RECO','+RECOSTBY'
+ set log_file_name_convert='+DATA','+DATASTBY','+RECO','+RECOSTBY'
+ set db_recovery_file_dest='+RECOSTBY'
+ set DB_CREATE_ONLINE_LOG_DEST_1='+DATASTBY'
+ set DB_CREATE_ONLINE_LOG_DEST_2='+RECOSTBY'
+ set DB_CREATE_ONLINE_LOG_DEST_3='+RECOSTBY'
+ set audit_file_dest='/u01/app/oracle/admin/EXA2DB/adump'
+ ;
+}
+
+
+AFTER SUCCESSFUL DUPLICATE, Set DB_CREATE_FILE_DEST AND INSTANCE INITIALIZATION PARAMETERS. 
+
+alter system set db_create_file_dest='+DATASTBY' scope=spfile sid='*';
+alter system set instance_number=1 sid='EXA2DB1' scope=spfile;
+alter system set instance_number=2 sid='EXA2DB2' scope=spfile;
+alter system set thread=1 sid='EXA2DB1' scope=spfile;
+alter system set thread=2 sid='EXA2DB2' scope=spfile;
+alter system set instance_name='EXA2DB1' sid='EXA2DB1' scope=spfile;
+alter system set instance_name='EXA2DB2' sid='EXA2DB2' scope=spfile;
+alter system set undo_tablespace='UNDOTBS1' scope=spfile sid='EXA2DB1';
+alter system set undo_tablespace='UNDOTBS2' scope=spfile sid='EXA2DB2';
+
+TRANSFER SPFILE IN DISKGROUP: 
+
+AS GRID USER 
+asmcmd mkdir +DATASTBY/EXA2DB/PARAMETERFILE
+ 
+AS ORACLE USER
+create pfile='xxx' from spfile;
+
+##EDIT SPFILE AND REMOVE ENTRIES THAT REFER TO THE PRIMARY INSTANCE
+create spfile='+DATASTBY/EXA2DB/PARAMETERFILE/spfileEXA2DB1.ora' from pfile='xxx'
+shut immediate;
+
+RENAME ORIGINAL SPFILE
+mv /u01/app/oracle/product/19.0.0.0/dbhome1/dbs/spfileEXA2DB1.ora /u01/app/oracle/product/19.0.0.0/dbhome1/dbs/spfileEXA2DB1_old.ora
+	
+
+ADD DATABASE AND INSTANCES TO THE GI CLUSTER
+srvctl add database -d EXA2DB -o $ORACLE_HOME -r physical_standby -s mount -p +DG_DATA/EXA2DB/PARAMETERFILE/spfileEXA2DB1.ora
+srvctl add instance -d EXA2DB -i EXA2DB1 -n exa2node1
+srvctl add instance -d EXA2DB -i EXA2DB2 -n exa2node2
+srvctl start database -d EXA2DB
+srvctl status database -d EXA2DB
+
+
+
+CONFIGURE DATAGUARD BROKER
+
+
+CREATE DIRECTORIES FOR DGBROKER FILES AND SET DG_BROKER INIT PARAMETERS: 
+
+EXA1DB
+AS grid USER
+asmcmd mkdir +DATA/dgbroker
+
+AS oracle
+alter system set dg_broker_config_file1='+DATA/dgbroker/dr1EXA1DB.dat' scope=both;
+alter system set dg_broker_config_file2='+DATA/dgbroker/dr2EXA1DB.dat' scope=both;
+alter system set dg_broker_start=true scope=both sid='*';
+
+EXA2DB
+AS grid USER
+asmcmd mkdir +DATASTBY/dgbroker
+
+AS oracle
+alter system set dg_broker_config_file1='+DATASTBY/dgbroker/dr1EXA2DB.dat' scope=both;
+alter system set dg_broker_config_file2='+DATASTBY/dgbroker/dr2EXA2DB.dat' scope=both;
+alter system set dg_broker_start=true scope=both sid='*' ;
+
+
+dgmgrl sys/Bobos_123@EXA1DB
+create configuration EXADBCONFIG as primary database is EXA1DB connect identifier is EXA1DB;
+add database EXA2DB as connect identifier is EXA2DB maintained as physical;
+enable configuration;
+show configuration;
+
+TEST SWITCH OVER
+
+dgmgrl sys/ Bobos_123@exa1db 
+sql ‘ALTER SYSTEM ARCHIVE LOG CURRENT’;
+switchover to exa2db
+show configuration;
+
+
+
+
+
+
+
+
+
+CONFIGURE SECOND STANDBY OF A SINGLE DATABASE WITH NO GRID INFRASTRUCTURE
+
+TNSNAMES.ORA:
+
+DRDB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = drnode)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = DRDB)(UR=A)
+    )
+  )
+
+LISTENER.ORA
+
+LISTENER =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = drnode)(PORT = 1521))
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+    )
+  )
+SID_LIST_LISTENER =
+(SID_LIST =
+   (SID_DESC =
+     (GLOBAL_DBNAME = DRDB)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = DRDB)
+    )
+   (SID_DESC =
+     (GLOBAL_DBNAME = DRDB_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome1)
+     (SID_NAME = DRDB)
+    )
+ )
+
+
+START LISTENER
+
+lsnrctl start
+
+
+ON FIRST PRIMARY DATABASE AND SECONDARY DATABASE
+alter system set DB_FILE_NAME_CONVERT='+DATA','/u02/oradata','+RECO','/u02/oradata/recovery', '+DATASTBY', '/u02/oradata', '+RECOSTBY', '/u02/oradata/recovery' scope=spfile sid='*';
+alter system set LOG_FILE_NAME_CONVERT='+DATA','/u02/oradata','+RECO','/u02/oradata/recovery', '+DATASTBY', '/u02/oradata', '+RECOSTBY', '/u02/oradata/recovery' scope=spfile sid='*';
+--ACTIVATE FLASHBACK ON DATABASE:
+alter database flashback ON;
+
+THESE STEPS NOT NECESSARY WHEN USING THE DATAGUARD BROKER:
+alter system set LOG_ARCHIVE_CONFIG='DG_CONFIG=(DRDB,EXA1DB,EXA2DB)' scope=both sid='*';
+#alter system set LOG_ARCHIVE_DEST_1= 'LOCATION=USE_DB_RECOVERY_FILE_DEST VALID_FOR=(ALL_LOGFILES,ALL_ROLES) DB_UNIQUE_NAME=DRDB' scope=both sid='*';
+#alter system set LOG_ARCHIVE_DEST_2= 'SERVICE=EXA1DB ASYNC  VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE)   DB_UNIQUE_NAME=EXA1DB' scope=both sid='*';
+#alter system set LOG_ARCHIVE_DEST_3= 'SERVICE=EXA2DB ASYNC  VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE)   DB_UNIQUE_NAME=EXA2DB' scope=both sid='*';
+
+
+
+
+
+AS grid user get password file OF THE PRIMARY DATABASE
+ASMCMD  pwget --dbuniquename 'EXA1DB';
++DGDATA/EXA1DB/PASSWORD/pwdexa1db.270.1032198029
+ASMCMD pwcopy +DATA/EXA1DB/PASSWORD/pwdexa1db.262.1048580631 /tmp
+copying +DATA/EXA1DB/PASSWORD/pwdexa1db.262.1048580631 -> /tmp/pwdexa1db.270.1032198029
+chmod 777 /tmp/pwdexa1db.270.1032198029
+
+COPY password file to the two standby nodes:
+scp /tmp/pwdexa1db.270.1032198029 DRNODE:/u01/app/oracle/product/19.0.0.0/dbhome1/dbs/orapwDRDB
+
+
+
+rman target sys/Bobos_123@EXA1DB AUXILIARY sys/Bobos_123@DRDB
+run{
+duplicate target database for standby from active database
+spfile
+ set db_unique_name='DRDB'
+ set instance_name='DRDB'
+ set db_create_file_dest='/u02/oradata'
+ set db_recovery_file_dest='/u02/oradata'
+ set cluster_database='FALSE'
+ set control_files='/u02/oradata/DRDB/controlfile/controlfile02.dbf','/u01/oradata/DRDB/controlfile/controlfile01.dbf'
+ set db_file_name_convert = 'exa1db','DRDB'
+ set log_file_name_convert = 'exa1db','DRDB'
+ set DB_CREATE_ONLINE_LOG_DEST_1='/u02/oradata'
+ set DB_CREATE_ONLINE_LOG_DEST_2='/u02/oradata'
+ set DB_CREATE_ONLINE_LOG_DEST_3='/u02/oradata'
+ set db_file_name_convert='+DATA','/u02/oradata','+RECO','/u02/oradata/recovery', '+DATASTBY', '/u02/oradata', '+RECOSTBY', '/u02/oradata/recovery'
+ set log_file_name_convert='+DATA','/u02/oradata','+RECO','/u02/oradata/recovery', '+DATASTBY', '/u02/oradata', '+RECOSTBY', '/u02/oradata/recovery'
+ set db_recovery_file_dest='/u02/oradata/recovery'
+ set LOG_ARCHIVE_CONFIG='DG_CONFIG=(DRDB,EXA1DB,EXA2DB)'
+ set audit_file_dest='/u01/app/oracle/admin/DRDB/adump'
+ ;
+}
+
+
+ON EXA1DB 
+alter system set DB_FILE_NAME_CONVERT='+DATASTBY', '+DATA', '+RECOSTBY', '+RECO', '/u02/oradata', '+DATA', '/u02/oradata/recovery', '+RECO' scope=spfile sid='*';
+alter system set LOG_FILE_NAME_CONVERT='+DATASTBY', '+DATA', '+RECOSTBY', '+RECO', '/u02/oradata', '+DATA', '/u02/oradata/recovery', '+RECO' scope=spfile sid='*';
+
+
+ON EXA2DB
+alter system set DB_FILE_NAME_CONVERT='+DATA, +DATASTBY', '+RECO', '+RECOSTBY', '/u02/oradata', '+DATASTBY', '/u02/oradata/recovery', '+RECOSTBY' scope=spfile sid='*';
+alter system set LOG_FILE_NAME_CONVERT='+DATA, +DATASTBY', '+RECO', '+RECOSTBY', '/u02/oradata', '+DATASTBY', '/u02/oradata/recovery', '+RECOSTBY' scope=spfile sid='*';
+
+
+SET PARAMETERS DG_BROKER_START
+ALTER SYSTEM SET DG_BROKER_START = TRUE;
+
+
+
+UNSET PARAMETERS ON ALL DATABASES:
+
+ALTER SYSTEM SET log_archive_dest_1='' SCOPE=BOTH SID='*';
+ALTER SYSTEM SET log_archive_dest_2='' SCOPE=BOTH SID='*';
+ALTER SYSTEM SET log_archive_dest_3='' SCOPE=BOTH SID='*';
+
+
+
+Add the second standby (DRDB) to the broker from PRIMARY.
+
+DGMGRL> add database DRDB as connect identifier is DRDB maintained as physical;
+
+
+CHANGE AVAILABILITY MODE
+
+DGMGRL> EDIT DATABASE exa2db SET PROPERTY 'LogXptMode'='SYNC';
+Property "LogXptMode" updated
+DGMGRL> EDIT DATABASE drdb SET PROPERTY 'LogXptMode'='SYNC';
+Property "LogXptMode" updated
+DGMGRL> EDIT CONFIGURATION SET PROTECTION MODE AS  MAXAVAILABILITY;
+Succeeded.
+
+
+
+
+
+
+
+
+
+RMAN BACKUPS
+
+EXA1DB
+CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECO/snapcf_EXA1DB1.f';
+CONFIGURE ARCHIVELOG DELETION POLICY TO BACKED UP 1 TIMES TO DISK APPLIED ON ALL STANDBY;
+CONFIGURE ARCHIVELOG DELETION POLICY TO APPLIED ON ALL STANDBY BACKED UP 1 TIMES TO DISK;
+configure retention policy to recovery window of 2 days;
+
+
+
+EXA2DB
+CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECOSTBY/snapcf_EXA1DB1.f';
+CONFIGURE ARCHIVELOG DELETION POLICY TO BACKED UP 1 TIMES TO DISK APPLIED ON ALL STANDBY;
+CONFIGURE ARCHIVELOG DELETION POLICY TO APPLIED ON ALL STANDBY BACKED UP 1 TIMES TO DISK;
+configure retention policy to recovery window of 2 days;
+
+
+BACKUP SCRIPT
+[oracle@exa1node1 log]$ cat /home/oracle/scripts/backupscript.sh
+. $HOME/.EXA1DB1.profile
+
+if [ $1 -eq 3 ]
+then
+export LEVEL='ARCHIVE'
+backupstring='BACKUP AS COMPRESSED BACKUPSET ARCHIVELOG all NOT BACKED UP 1 times;'
+else
+export LEVEL=$1
+backupstring="BACKUP INCREMENTAL LEVEL $LEVEL AS COMPRESSED BACKUPSET DATABASE;"
+fi
+
+rman target=backupadmin/backupadmin@EXA1DB log=/home/oracle/scripts/log/backup$LEVEL.log append << EOF
+RUN {
+#BACKUP INCREMENTAL LEVEL $LEVEL AS COMPRESSED BACKUPSET DATABASE;
+$backupstring
+DELETE NOPROMPT OBSOLETE;
+}
+EXIT;
+EOF
+
+
+
+
+
+
+asmca -silent -createDiskGroup -diskGroupName DG_ACFS -diskList  '/dev/asmdisk06' -redundancy external
+
+asmcmd volcreate -G DG_ACFS -s 25G volume1
+
+asmcmd volinfo -G DG_ACFS volume1
+
+/sbin/mkfs -t acfs /dev/asm/volume1-123
+
+srvctl add filesystem -device /dev/asm/volume1-123 -path /acfsmounts/acfs1 -user oracle,grid -mtowner grid -mtgroup oinstall -mtperm 775
+
+mkdir -p /acfsmounts/acfs1
+
+/sbin/acfsutil registry -a /dev/asm/volume1-123 /acfsmounts/acfs1
+
+srvctl start filesystem -device /dev/asm/volume1-123
+ 
+chown -R oracle:dba /acfsmounts/acfs1
+
+
+
+
+CREATE CONTAINER DATABASE IN SILENT MODE:
+
+
+[oracle@exa1node1 ~]$ dbca -silent -createDatabase -templateName General_Purpose.dbc -gdbname CDB1 -sid CDB1 -createAsContainerDatabase true -numberOfPDBs 0 -useLocalUndoForPDBs true -responseFile NO_VALUE -characterSet AL32UTF8 -totalMemory 2300 -sysPassword Bobos_123 -systemPassword Bobos_123 -pdbAdminPassword Bobos_123 -enableArchive true -recoveryAreaDestination +RECO -recoveryAreaSize 15000 -storageType ASM  -datafileDestination +DATA
+Prepare for db operation
+10% complete
+Registering database with Oracle Restart
+14% complete
+Copying database files
+
+43% complete
+Creating and starting Oracle instance
+45% complete
+49% complete
+54% complete
+58% complete
+62% complete
+Completing Database Creation
+68% complete
+70% complete
+71% complete
+Executing Post Configuration Actions
+100% complete
+Database creation complete. For details check the logfiles at:
+ /u01/app/oracle/cfgtoollogs/dbca/CDB1.
+Database Information:
+Global Database Name:CDB1
+System Identifier(SID):CDB1
+Look at the log file "/u01/app/oracle/cfgtoollogs/dbca/CDB1/CDB1.log" for further details.
+[oracle@exa1node1 ~]$
+[oracle@exa1node1 ~]$ cat "/u01/app/oracle/cfgtoollogs/dbca/CDB1/CDB1.log"
+[ 2020-08-26 17:06:26.851 CEST ] Prepare for db operation
+DBCA_PROGRESS : 10%
+[ 2020-08-26 17:06:34.891 CEST ] Registering database with Oracle Restart
+DBCA_PROGRESS : 14%
+[ 2020-08-26 17:06:38.140 CEST ] Copying database files
+DBCA_PROGRESS : 43%
+[ 2020-08-26 17:08:47.545 CEST ] Creating and starting Oracle instance
+DBCA_PROGRESS : 45%
+DBCA_PROGRESS : 49%
+DBCA_PROGRESS : 54%
+DBCA_PROGRESS : 58%
+DBCA_PROGRESS : 62%
+[ 2020-08-26 17:19:48.923 CEST ] Completing Database Creation
+DBCA_PROGRESS : 68%
+DBCA_PROGRESS : 70%
+DBCA_PROGRESS : 71%
+[ 2020-08-26 17:28:56.401 CEST ] Executing Post Configuration Actions
+DBCA_PROGRESS : 100%
+[ 2020-08-26 17:28:56.403 CEST ] Database creation complete. For details check the logfiles at:
+ /u01/app/oracle/cfgtoollogs/dbca/CDB1.
+Database Information:
+Global Database Name:CDB1
+System Identifier(SID):CDB1
+
+
+
+SQL> CREATE PLUGGABLE DATABASE pdb1 admin user trevore identified by Bobos_123;
+Pluggable database created.
+
+
+
+
+
+ORACLE ENTERPRISE DATABASE Creation
+
+
+
+
+
+${ORACLE_HOME}/runInstaller -ignorePrereq -waitforcompletion -silent           \
+    -responseFile ${ORACLE_HOME}/install/response/db_install.rsp               \
+    oracle.install.option=INSTALL_DB_SWONLY                                    \
+    ORACLE_HOSTNAME=${ORACLE_HOSTNAME}                                         \
+    UNIX_GROUP_NAME=oinstall                                                   \
+    INVENTORY_LOCATION=${ORA_INVENTORY}                                        \
+    SELECTED_LANGUAGES=en,en_GB                                                \
+    ORACLE_HOME=${ORACLE_HOME}                                                 \
+    ORACLE_BASE=${ORACLE_BASE}                                                 \
+    oracle.install.db.InstallEdition=EE                                        \
+    oracle.install.db.OSDBA_GROUP=oinstall                                          \
+    oracle.install.db.OSBACKUPDBA_GROUP=oinstall                                    \
+    oracle.install.db.OSDGDBA_GROUP=oinstall                                        \
+    oracle.install.db.OSKMDBA_GROUP=oinstall                                        \
+    oracle.install.db.OSRACDBA_GROUP=oinstall                                       \
+    SECURITY_UPDATES_VIA_MYORACLESUPPORT=false                                 \
+    DECLINE_SECURITY_UPDATES=true
+
+lsnrctl start
+
+mkdir -p /u01/oradata
+
+export ORACLE_SID=emcdb
+export SYS_PASSWORD="Bobos_123"
+export PDB_NAME="emrep"
+export PDB_PASSWORD="Bobos_123"
+export DATA_DIR=/u01/oradata
+
+dbca -silent -createDatabase                                                 \
+  -templateName General_Purpose.dbc                                          \
+  -gdbname ${ORACLE_SID} -sid ${ORACLE_SID} -responseFile NO_VALUE           \
+  -characterSet AL32UTF8                                                     \
+  -sysPassword ${SYS_PASSWORD}                                               \
+  -systemPassword ${SYS_PASSWORD}                                            \
+  -createAsContainerDatabase true                                            \
+  -numberOfPDBs 1                                                            \
+  -pdbName ${PDB_NAME}                                                       \
+  -pdbAdminPassword ${PDB_PASSWORD}                                          \
+  -databaseType MULTIPURPOSE                                                 \
+  -memoryMgmtType auto_sga                                                   \
+  -totalMemory 3072                                                          \
+  -storageType FS                                                            \
+  -datafileDestination "${DATA_DIR}"                                         \
+  -redoLogFileSize 600                                                       \
+  -emConfiguration NONE                                                      \
+  -ignorePreReqs
+
+
+
+
+# Set the PDB to auto-start.
+sqlplus / as sysdba <<EOF
+alter system set db_create_file_dest='${DATA_DIR}';
+alter pluggable database ${PDB_NAME} save state;
+
+-- Recommended minimum settings.
+alter system set "_allow_insert_with_update_check"=true scope=both;
+alter system set session_cached_cursors=400 scope=spfile;
+ 
+-- Recommended: processes=600
+alter system set processes=2000 scope=spfile;
+
+-- Recommended: pga_aggregate_target=1G
+alter system set pga_aggregate_target=450M scope=spfile;
+
+-- Recommended: sga_target=3G
+alter system set sga_target=1500M scope=spfile;
+
+-- Recommended: shared_pool_size=600M
+--alter system set shared_pool_size=600M scope=spfile;
+
+-- For 12.1.0.2 set the following.
+--alter system set optimizer_adaptive_features=false scope=both;
+
+-- Should not be needed for 19c, but installer fails without them.
+alter system set "_optimizer_nlj_hj_adaptive_join"= FALSE scope=both sid='*';
+alter system set "_optimizer_strans_adaptive_pruning" = FALSE scope=both sid='*';
+alter system set "_px_adaptive_dist_method" = OFF scope=both sid='*';
+alter system set "_sql_plan_directive_mgmt_control" = 0 scope=both sid='*';
+alter system set "_optimizer_dsdir_usage_control" = 0 scope=both sid='*';
+alter system set "_optimizer_use_feedback" = FALSE scope=both sid='*';
+alter system set "_optimizer_gather_feedback" = FALSE scope=both sid='*';
+alter system set "_optimizer_performance_feedback" = OFF scope=both sid='*';
+
+SHUTDOWN IMMEDIATE;
+STARTUP;
+
+exit;
+EOF
+
+
+
+# Set restart flag in /etc/oratab.
+cp /etc/oratab /tmp
+sed -i -e "s|${ORACLE_SID}:${ORACLE_HOME}:N|${ORACLE_SID}:${ORACLE_HOME}:Y|g" /tmp/oratab
+cp -f /tmp/oratab /etc/oratab
+
+
+
+Cloud Control 13c Silent Installation
+
+export SOFTWARE_DIR=/u01/software
+
+mkdir -p /u01/app/oracle/middleware
+mkdir -p /u01/app/oracle/agent
+
+#${SOFTWARE_DIR}/em13400_linux64.bin -getResponseFileTemplates -outputLoc /tmp/
+
+
+# Set parameters.
+ORACLE_BASE=/u01/app/oracle
+UNIX_GROUP_NAME=oinstall
+ORA_INVENTORY=/u01/app/oraInventory
+MW_HOME=${ORACLE_BASE}/middleware
+ORACLE_HOSTNAME=${HOSTNAME}
+AGENT_BASE=${ORACLE_BASE}/agent
+WLS_USERNAME=weblogic
+WLS_PASSWORD=Bobos_123
+GC_INST=${ORACLE_BASE}/gc_inst
+SOFTWARE_LIBRARY=${ORACLE_BASE}/swlib
+DATABASE_HOSTNAME=localhost
+LISTENER_PORT=1521
+PDB_NAME=emrep
+SYS_PASSWORD=Bobos_123
+AGENT_PASSWORD=${WLS_PASSWORD}
+ORACLE_SID=emcdb
+DATA_DIR=/u01/oradata
+OMS_HOME=${MW_HOME}
+SYSMAN_PASSWORD=${WLS_PASSWORD}
+SOFTWARE_DIR=/u01/software
+
+# Create Response file.
+cat > /tmp/install.rsp <<EOF
+RESPONSEFILE_VERSION=2.2.1.0.0
+UNIX_GROUP_NAME=${UNIX_GROUP_NAME}
+INVENTORY_LOCATION=${ORA_INVENTORY}
+SECURITY_UPDATES_VIA_MYORACLESUPPORT=false
+DECLINE_SECURITY_UPDATES=true
+INSTALL_UPDATES_SELECTION=skip
+ORACLE_MIDDLEWARE_HOME_LOCATION=${MW_HOME}
+ORACLE_HOSTNAME=${ORACLE_HOSTNAME}
+AGENT_BASE_DIR=${AGENT_BASE}
+WLS_ADMIN_SERVER_USERNAME=${WLS_USERNAME}
+WLS_ADMIN_SERVER_PASSWORD=${WLS_PASSWORD}
+WLS_ADMIN_SERVER_CONFIRM_PASSWORD=${WLS_PASSWORD}
+NODE_MANAGER_PASSWORD=${WLS_PASSWORD}
+NODE_MANAGER_CONFIRM_PASSWORD=${WLS_PASSWORD}
+ORACLE_INSTANCE_HOME_LOCATION=${GC_INST}
+CONFIGURE_ORACLE_SOFTWARE_LIBRARY=true
+SOFTWARE_LIBRARY_LOCATION=${SOFTWARE_LIBRARY}
+DATABASE_HOSTNAME=${DATABASE_HOSTNAME}
+LISTENER_PORT=${LISTENER_PORT}
+SERVICENAME_OR_SID=${PDB_NAME}
+SYS_PASSWORD=${SYS_PASSWORD}
+SYSMAN_PASSWORD=${SYSMAN_PASSWORD}
+SYSMAN_CONFIRM_PASSWORD=${SYSMAN_PASSWORD}
+DEPLOYMENT_SIZE=SMALL
+AGENT_REGISTRATION_PASSWORD=${AGENT_PASSWORD}
+AGENT_REGISTRATION_CONFIRM_PASSWORD=${AGENT_PASSWORD}
+PLUGIN_SELECTION={}
+b_upgrade=false
+EM_INSTALL_TYPE=NOSEED
+CONFIGURATION_TYPE=LATER
+CONFIGURE_SHARED_LOCATION_BIP=false
+MANAGEMENT_TABLESPACE_LOCATION=${DATA_DIR}/${ORACLE_SID^^}/${PDB_NAME}/mgmt.dbf
+CONFIGURATION_DATA_TABLESPACE_LOCATION=${DATA_DIR}/${ORACLE_SID^^}/${PDB_NAME}/mgmt_ecm_depot1.dbf
+JVM_DIAGNOSTICS_TABLESPACE_LOCATION=${DATA_DIR}/${ORACLE_SID^^}/${PDB_NAME}/mgmt_deepdive.dbf
+EOF
+Start the silent software-only installation by running the "em13400_linux64.bin" file, making sure the CLASSPATH is unset.
+
+unset CLASSPATH
+${SOFTWARE_DIR}/em13400_linux64.bin -silent -responseFile /tmp/install.rsp
+
+
+Setup successful
+Agent OracleHome :/u01/app/oracle/agent/agent_13.4.0.0.0
+OMS OracleHome :/u01/app/oracle/middleware
+
+13NGCHEKAGGREGATE  : oracle.sysman.top.agent
+13NGCHEKAGGREGATE  : OuiConfigVariables
+13NGCHEKAGGREGATE  : oracle.sysman.top.oms
+13NGCHEKAGGREGATE  : encap_oms
+13NGCHEKAGGREGATE  : OuiConfigVariables
+Prompt for the allroot.sh
+
+Warning: You must run the following configuration scripts as the "root" user.
+  /u01/app/oracle/middleware/allroot.sh
+
+
+
+
+We can now configure Cloud Control. Create a response file for the configuration process.
+
+cat > /tmp/config.rsp <<EOF
+RESPONSEFILE_VERSION=2.2.1.0.0
+UNIX_GROUP_NAME=${UNIX_GROUP_NAME}
+INVENTORY_LOCATION=${ORA_INVENTORY}
+SECURITY_UPDATES_VIA_MYORACLESUPPORT=false
+DECLINE_SECURITY_UPDATES=true
+INSTALL_UPDATES_SELECTION=skip
+ORACLE_MIDDLEWARE_HOME_LOCATION=${MW_HOME}
+ORACLE_HOSTNAME=${ORACLE_HOSTNAME}
+AGENT_BASE_DIR=${AGENT_BASE}
+WLS_ADMIN_SERVER_USERNAME=${WLS_USERNAME}
+WLS_ADMIN_SERVER_PASSWORD=${WLS_PASSWORD}
+WLS_ADMIN_SERVER_CONFIRM_PASSWORD=${WLS_PASSWORD}
+NODE_MANAGER_PASSWORD=${WLS_PASSWORD}
+NODE_MANAGER_CONFIRM_PASSWORD=${WLS_PASSWORD}
+ORACLE_INSTANCE_HOME_LOCATION=${GC_INST}
+CONFIGURE_ORACLE_SOFTWARE_LIBRARY=true
+SOFTWARE_LIBRARY_LOCATION=${SOFTWARE_LIBRARY}
+DATABASE_HOSTNAME=${DATABASE_HOSTNAME}
+LISTENER_PORT=${LISTENER_PORT}
+SERVICENAME_OR_SID=${PDB_NAME}
+SYS_PASSWORD=${SYS_PASSWORD}
+SYSMAN_PASSWORD=${SYSMAN_PASSWORD}
+SYSMAN_CONFIRM_PASSWORD=${SYSMAN_PASSWORD}
+DEPLOYMENT_SIZE=SMALL
+AGENT_REGISTRATION_PASSWORD=${AGENT_PASSWORD}
+AGENT_REGISTRATION_CONFIRM_PASSWORD=${AGENT_PASSWORD}
+PLUGIN_SELECTION={}
+b_upgrade=false
+EM_INSTALL_TYPE=NOSEED
+CONFIGURATION_TYPE=ADVANCED
+CONFIGURE_SHARED_LOCATION_BIP=false
+MANAGEMENT_TABLESPACE_LOCATION=${DATA_DIR}/${ORACLE_SID^^}/${PDB_NAME}/mgmt.dbf
+CONFIGURATION_DATA_TABLESPACE_LOCATION=${DATA_DIR}/${ORACLE_SID^^}/${PDB_NAME}/mgmt_ecm_depot1.dbf
+JVM_DIAGNOSTICS_TABLESPACE_LOCATION=${DATA_DIR}/${ORACLE_SID^^}/${PDB_NAME}/mgmt_deepdive.dbf
+EOF
+
+Run the configuration using the response file we just created, making sure the CLASSPATH is unset.
+
+unset CLASSPATH
+${MW_HOME}/sysman/install/ConfigureGC.sh -silent -responseFile /tmp/config.rsp
+
+
+
+Agent Configuration completed successfully
+The following configuration scripts need to be executed as the "root" user. Root script to run : /u01/app/oracle/agent/agent_13.4.0.0.0/root.sh
+AgentConfiguration:agent configuration finished with status = true
+
+2020-09-28_07-29-29AM: Configuration Assistant "Agent Configuration Assistant" has Succeeded.
+
+*** The Installation was Successful. ***
+
+
+This information is also available at:
+
+        /u01/app/oracle/middleware/install/setupinfo.txt
+
+See the following for information pertaining to your Enterprise Manager installation:
+
+
+Use the following URL to access:
+
+        1. Enterprise Manager Cloud Control URL: https://oemnode.tretec.dom:7803/em
+        2. Admin Server URL: https://oemnode.tretec.dom:7102/console
+        3. BI Publisher URL: https://oemnode.tretec.dom:9803/xmlpserver/servlet/home
+
+The following details need to be provided while installing an additional OMS:
+
+        1. Admin Server Host Name: oemnode.tretec.dom
+        2. Admin Server Port: 7102
+
+You can find the details on ports used by this deployment at : /u01/app/oracle/middleware/install/portlist.ini
+
+
+ NOTE:
+ An encryption key has been generated to encrypt sensitive data in the Management Repository. If this key is lost, all encrypted data in the Repository becomes unusable.
+
+ A backup of the OMS configuration is available in /u01/app/oracle/gc_inst/em/EMGC_OMS1/sysman/backup on host oemnode.tretec.dom. See Cloud Control Administrators Guide for details on how to back up and recover an OMS.
+
+ NOTE: This backup is valid only for the initial OMS configuration. For example, it will not reflect plug-ins installed later, topology changes like the addition of a load balancer, or changes to other properties made using emctl or emcli. Backups should be created on a regular basis to ensure they capture the current OMS configuration. Use the following command to backup the OMS configuration:
+/u01/app/oracle/middleware/bin/emctl exportconfig oms -dir <backup dir>
+
+Prompt for the allroot.sh
+
+nmcli connection modify GNETTeam0 ipv4.addresses '192.168.200.39/24' ipv4.method manual connection.autoconnect yes ipv4.dns "172.31.255.4" ipv4.gateway 192.168.200.2
+
+mkdir -p /u02/app/oracle/product/19.0.0/dbhome_1
+mkdir -p /u02/oradata
+chown -R oracle:oinstall  /u02
+chmod -R 775  /u02
+
+
+cat > /home/oracle/scripts/setEnv.sh <<EOF
+# Oracle Settings
+export TMP=/tmp
+export TMPDIR=\$TMP
+
+export ORACLE_HOSTNAME=exa1node1.tretec.dom
+export ORACLE_UNQNAME=oratosql
+export ORACLE_BASE=/u02/app/oracle
+export ORACLE_HOME=\$ORACLE_BASE/product/19.0.0/dbhome_1
+export ORA_INVENTORY=/u02/app/oraInventory
+export ORACLE_SID=oratosql
+export DATA_DIR=/u02/oradata	
+
+export PATH=/usr/sbin:/usr/local/bin:\$PATH
+export PATH=\$ORACLE_HOME/bin:\$PATH
+
+export LD_LIBRARY_PATH=\$ORACLE_HOME/lib:/lib:/usr/lib
+export CLASSPATH=\$ORACLE_HOME/jlib:\$ORACLE_HOME/rdbms/jlib
+EOF
+
+./runInstaller -ignorePrereq -waitforcompletion -silent                        \
+    -responseFile ${ORACLE_HOME}/install/response/db_install.rsp               \
+    oracle.install.option=INSTALL_DB_SWONLY                                    \
+    ORACLE_HOSTNAME=${ORACLE_HOSTNAME}                                         \
+    UNIX_GROUP_NAME=oinstall                                                   \
+    INVENTORY_LOCATION=${ORA_INVENTORY}                                        \
+    SELECTED_LANGUAGES=en,en_US                                                \
+    ORACLE_HOME=${ORACLE_HOME}                                                 \
+    ORACLE_BASE=${ORACLE_BASE}                                                 \
+    oracle.install.db.InstallEdition=EE                                        \
+    oracle.install.db.OSDBA_GROUP=dba                                          \
+    oracle.install.db.OSBACKUPDBA_GROUP=dba                                    \
+    oracle.install.db.OSDGDBA_GROUP=dba                                        \
+    oracle.install.db.OSKMDBA_GROUP=dba                                        \
+    oracle.install.db.OSRACDBA_GROUP=dba                                       \
+    SECURITY_UPDATES_VIA_MYORACLESUPPORT=false                                 \
+    DECLINE_SECURITY_UPDATES=true
+	
+	
+# Start the listener.
+lsnrctl start
+
+# Interactive mode.
+dbca
+
+# Silent mode.
+dbca -silent -createDatabase                                                   \
+     -templateName General_Purpose.dbc                                         \
+     -gdbname ${ORACLE_SID} -sid  ${ORACLE_SID} -responseFile NO_VALUE         \
+     -characterSet AL32UTF8                                                    \
+     -sysPassword Bobos_123                                                 \
+     -systemPassword Bobos_123                                              \
+     -createAsContainerDatabase false                                           \
+     -databaseType MULTIPURPOSE                                                \
+     -memoryMgmtType auto_sga                                                  \
+     -totalMemory 4000                                                         \
+     -storageType FS                                                           \
+     -datafileDestination "${DATA_DIR}"                                        \
+     -redoLogFileSize 50                                                       \
+     -emConfiguration NONE                                                     \
+     -ignorePreReqs

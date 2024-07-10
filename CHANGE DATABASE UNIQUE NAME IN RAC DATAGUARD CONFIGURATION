@@ -1,0 +1,106 @@
+## CHANGE DATABASE UNIQUE NAME IN RAC DATAGUARD CONFIGURATION
+#
+# Have a crsstat output handy for next part
+# Make sure DG configuration is removed before renaming
+
+script change_dbunique.txt
+
+# Start DG broker
+# ON BOTH SITES exa1node1 / exa2node1
+# As "oracle" user
+
+
+crsctl stat res -t
+
+PASSWDFILE=`srvctl config database -d EXA1DB_PDC | awk ' /Password file/ {print $3}'`
+DBSPFILE=`srvctl config database -d EXA1DB_PDC | awk ' /Spfile/ {print $3}'`
+srvctl config database -d EXA1DB_PDC
+
+
+sqlplus / as sysdba<<EOF
+alter system set dg_broker_start=true scope=both sid='*';
+show parameter dg_broker_start
+show spparameter dg_broker_start
+EOF
+
+dgmgrl / <<EOF
+show configuration
+remove configuration
+EOF
+
+FOR PRIMARY
+srvctl stop database -d ${ORACLE_UNQNAME}
+srvctl remove database -d ${ORACLE_UNQNAME}
+sqlplus / as sysdba <<EOF
+startup mount
+alter system set db_unique_name = "${ORACLE_UNQNAME}_pdc" scope=spfile;
+shutdown immediate
+EOF
+
+FOR STANDBY
+srvctl stop database -d ${ORACLE_UNQNAME}
+srvctl remove database -d ${ORACLE_UNQNAME}
+sqlplus / as sysdba <<EOF
+startup mount
+alter system set db_unique_name = "${ORACLE_UNQNAME}_sdc" scope=spfile;
+shutdown immediate
+EOF
+
+
+# Change TNS!!!
+
+srvctl add database -d ${ORACLE_UNQNAME}_pdc -o ${ORACLE_HOME} -c RAC -n ${ORACLE_UNQNAME} -p ${DBSPFILE} -pwfile ${PASSWDFILE}
+srvctl add instance -d ${ORACLE_UNQNAME}_pdc -i ${ORACLE_UNQNAME}1 -n exa1node1
+srvctl add instance -d ${ORACLE_UNQNAME}_pdc -i ${ORACLE_UNQNAME}2 -n exa1node2
+srvctl add service -db ${ORACLE_UNQNAME}_pdc -service exadb_any -preferred ${ORACLE_UNQNAME}1,${ORACLE_UNQNAME}2 -tafpolicy BASIC -role primary -policy AUTOMATIC -failovertype SELECT -failovermethod BASIC
+
+
+srvctl add service -db ${ORACLE_UNQNAME}_pdc -service ${ORACLE_UNQNAME}_i01 -preferred ${ORACLE_UNQNAME}1 -available  ${ORACLE_UNQNAME}2 -tafpolicy BASIC -role primary -policy AUTOMATIC -failovertype SELECT -failovermethod BASIC
+srvctl add service -db ${ORACLE_UNQNAME}_pdc -service ${ORACLE_UNQNAME}_i02 -preferred ${ORACLE_UNQNAME}2 -available  ${ORACLE_UNQNAME}1 -tafpolicy BASIC -role primary -policy AUTOMATIC -failovertype SELECT -failovermethod BASIC
+
+
+###################################
+srvctl start database -d ${ORACLE_UNQNAME}_pdc
+
+
+
+##==================================================
+
+### RECREATE DGMGRL CONFIG
+unset TNS_ADMIN
+PRI_UNAME=${ORACLE_UNQNAME}_PDC
+SBY_UNAME=${ORACLE_UNQNAME}_SDC
+SYSPWD=Bobos_123
+
+
+dgmgrl sys/$SYSPWD@${PRI_UNAME^^} <<EOF
+create configuration dgconfig AS PRIMARY DATABASE IS ${PRI_UNAME} CONNECT IDENTIFIER IS ${PRI_UNAME^^};
+EOF
+echo "Now sleep 15 seconds"
+sleep 15
+dgmgrl sys/$SYSPWD@${PRI_UNAME^^} <<EOF
+ADD DATABASE ${SBY_UNAME} AS CONNECT IDENTIFIER IS ${SBY_UNAME^^};
+EOF
+echo "Now sleep 15 seconds"
+sleep 15
+dgmgrl sys/$SYSPWD@${PRI_UNAME^^} <<EOF
+edit database ${PRI_UNAME} set property LogXptMode='SYNC';
+edit database ${SBY_UNAME} set property LogXptMode='SYNC';
+edit configuration set protection mode as maxavailability;
+ENABLE CONFIGURATION
+EOF
+
+echo "Now sleep 30 seconds"
+sleep 30
+dgmgrl sys/$SYSPWD@${PRI_UNAME^^} <<EOF
+edit database ${SBY_UNAME} set state=apply-off;
+EOF
+
+sqlplus / as sysdba <<EOF
+alter database flashback on;
+exit
+EOF
+
+dgmgrl sys/$SYSPWD@${PRI_UNAME^^} <<EOF
+edit database ${SBY_UNAME} set state=apply-on;
+EOF

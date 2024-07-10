@@ -1,0 +1,156 @@
+
+
+
+. .profile.ODBIST104_11c
+cat .profile.ODBIST104_11c
+sqlplus / as sysdba
+
+create spfile from pfile;
+
+alter system set db_recovery_file_dest='+DG_ODBIST104_FRA' scope=both;
+alter system set db_recovery_file_dest_size=100G scope=both;
+alter system set log_archive_dest_1='' scope=both;
+
+nohup expdp '"/ as sysdba"' schemas=audit_viewer dumpfile=audit_viewer.dmp logfile=audit_viewer.log directory=EXP_DIR &
+drop user audit_viewer casacde;
+
+
+sqlplus / as sysdba
+/u01/app/oracle/product/11.2.0/dbhome_1/jdk/bin/java -jar /u01/app/oracle/product/12.2.0/dbhome_1/rdbms/admin/preupgrade.jar TERMINAL TEXT
+
+. .profile.ODBIST104_11c
+vi /u01/app/oracle/cfgtoollogs/ODBIST104/preupgrade/preupgrade_fixups.sql
+
+
+nohup sqlplus "/ as sysdba" @/u01/app/oracle/cfgtoollogs/ODBIST104/preupgrade/preupgrade_fixups.sql &
+
+tail -100f nohup.out
+
+
+script upgrade_tastks
+cd whileupgrade/
+vi catupgrd0.log
+ls -lrt /home/oracle/whileupgrade/upg_summary.log
+ls -lrt /home/oracle/whileupgrade
+ls -lrt
+ls -a  
+  
+cp /u01/app/oracle/product/11.2.0/dbhome_1/dbs/spfileODBIST104.ora /u01/app/oracle/product/12.2.0/dbhome_1/dbs
+export ORACLE_HOME=/u01/app/oracle/product/12.2.0/dbhome_1
+export PATH=/u01/app/oracle/product/12.2.0/dbhome_1/bin:$PATH
+which sqlplus
+sqlplus / as sysdba
+mkdir -p /home/oracle/whileupgrade
+cd $ORACLE_HOME/rdbms/admin
+nohup /u01/app/oracle/product/12.2.0/dbhome_1/perl/bin/perl catctl.pl -l /home/oracle/whileupgrade -n 4 catupgrd.sql &
+
+nohup /u01/app/oracle/product/12.2.0.1/perl/bin/perl catctl.pl -l /home/oracle/whileupgrade -n 4 catupgrd.sql &
+tail -100f nohup.out
+
+
+
+. .profile.ODBIST104
+find /u01 -name postupgrade_fixups.sql 2>/dev/null
+ls -lrt /u01/app/oracle/cfgtoollogs/ODBIST104/preupgrade/postupgrade_fixups.sql
+sqlplus / as sysdba
+@/u01/app/oracle/cfgtoollogs/ODBIST104/preupgrade/postupgrade_fixups.sql
+
+
+sqlplus / as sysdba
+ls -lrt /tmp
+cd
+mkdir DBMS_DST
+ls -lrt
+mv DBMS_DST_scriptsV1.9.zip DBMS_DST
+cd DBMS_DST/
+ls -lrt
+unzip *
+ls -lrt
+cd DBMS_DST_scriptsV1.9
+ls
+sqlplus / as sysdba
+select version from v$timezone_file;
+@upg_tzv_check.sql
+
+@upg_tzv_apply.sql
+select version from v$timezone_file;
+
+sqlplus / as sysdba
+@/u01/app/oracle/cfgtoollogs/ODBIST104/preupgrade/postupgrade_fixups.sql
+
+
+
+nohup sqlplus "/ as sysdba" @$ORACLE_HOME/rdbms/admin/utlrp.sql > /home/oracle/utlrp.out 2>&1 &
+
+sqlplus / as sysdba
+alter system set compatible='12.2.0' scope=spfile;
+shutdown immediate;
+startup;
+
+
+
+
+
+
+tnsping ODBIST104
+sys/Oracle_123@ODBIST104 as sysdba
+sqlplus sys/Oracle_123@ODBIST104 as sysdba
+lsnrctl status
+ps -eaf | grep tns
+lsnrctl status tnsping ODBIST104
+tnsping ODBIST104
+lsnrctl status LISTENER_ODBIST104
+sqlplus / as sysdba
+lsnrctl status LISTENER_ODBIST104
+vi /u01/app/oracle/product/12.2.0/dbhome_1/network/admin/listener.ora
+ls -lrt /u01/app/oracle/product/12.2.0/dbhome_1/network/admin/listener.ora
+vi /u01/app/share/network/admin/listener12.ora
+vi /u01/app/share/network/admin/listener.ora
+ls -a
+. .profile.ODBIST104
+ps -eaf | grep tns
+ls -lrt $ORACLE_HOME/network/admin/listener.ora
+vi /u01/app/share/network/admin/listener12.ora
+vi /u01/app/share/network/admin/tnsnames.ora
+tnsping ODBIST104
+sqlplus sys@ODBIST104 as sysdba
+ps -eaf | grep pmon
+tnsping ODBIST104
+env | grep ORA
+vi /u01/app/share/network/admin/listener12.ora
+ps -eaf | grep tns
+lsnrctl reload LISTENER_ODBIST104
+lsnrctl status LISTENER_ODBIST104
+sqlplus sys@ODBIST104
+sqlplus sys@ODBIST104 as sysdba
+sqlplus / as sysdba
+sqlplus sys@ODBIST104 as sysdba
+cd $ORACLE_HOME/dbs
+ls -lrt
+history | grep orapw
+orapwd file=orapwODBIST104 password=sysLEODBIST08
+orapwd file=orapwODBIST104 password=sysLEODBIST08 format=12
+mv orapwODBIST104 orapwODBIST104_old
+orapwd file=orapwODBIST104 password=sysLEODBIST08 format=12
+sqlplus sys@ODBIST104 as sysdba
+pwd
+scp orapwODBIST104 le-oradbs-11:/u01/app/oracle/product/12.2.0/dbhome_1/dbs
+scp orapwODBIST104 le-oradbs-13:/u01/app/oracle/product/12.2.0/dbhome_1/dbs
+scp orapwODBIST104 le-oradbs-14:/u01/app/oracle/product/12.2.0/dbhome_1/dbs
+nohup sqlplus "/ as sysdba" @$ORACLE_HOME/rdbms/admin/utlrp &
+tail -100f nohup.out
+ls -a
+. .profile.ODBIST104
+tnsping ODBIST104
+. .profile.ODBIST104
+vi /u01/app/oracle/product/19.0.0/dbhome_1/network/admin/listener.ora
+vi $ORACLE_HOME/network/admin/listener.ora
+. .profile.ODBIST104
+tnsping ODBIST104
+. .profile.ODBIST104
+lsnrctl status
+tnsping ODBIST104
+sqlplus sys/sysLEODBIST08@ODBIST104 as sysdba
+df -h
+cd /u01
+sqlplus sys/sysLEODBIST08@ODBIST104 as sysdba

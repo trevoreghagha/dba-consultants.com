@@ -1,0 +1,319 @@
+View packages running:
+
+select 'CALLED PLSQL', vs.username, d_o.object_name -- whatever info you need
+  from dba_objects d_o
+--  where owner='XXX'
+       inner join
+       v$session vs
+          on d_o.object_id = vs.plsql_entry_object_id
+union all
+select 'CURRENT PLSQL', vs.username, d_o.object_name
+  from dba_objects d_o
+       inner join
+       v$session vs
+          on d_o.object_id = vs.plsql_object_id;
+		  
+		  
+
+TABLE SIZE with no lobs
+
+col owner FOR a20
+col segment_name FOR a40
+SELECT S.owner "Owner",
+Nvl(S.segment_name, 'TABLE TOTAL SIZE') "Segment_name",
+Round(SUM(S.bytes) / 1024 / 1024 / 1024, 1) "Segment_size_GB"
+FROM dba_segments S
+WHERE S.segment_name IN ( '&TABLE_NAME' )
+AND S.owner IN ( '&SCHEMA_NAME' )
+GROUP BY Owner,segment_name;
+
+
+TABLESIZE WITH LOBS 
+
+col owner FOR a20
+col segment_name FOR a40
+SELECT S.owner "Owner",
+Nvl(S.segment_name, 'TABLE TOTAL SIZE') "Segment_name",
+Round(SUM(S.bytes) / 1024 / 1024 / 1024, 1) "Segment_size_GB"
+FROM dba_segments S
+WHERE S.segment_name IN ( '&TABLE_NAME' )
+AND S.owner IN ( '&SCHEMA_NAME' )
+OR S.segment_name IN ((SELECT L.segment_name
+FROM dba_lobs L
+WHERE L.table_name = '&TABLE_NAME'
+AND L.owner IN ( '&SCHEMA_NAME' )))
+GROUP BY S.owner,rollup( S.segment_name )
+ORDER BY 1,2,3;
+
+
+select PARTITION_NAME,sum(bytes)/1024/1024/1024 GB from dba_segments where SEGMENT_NAME=upper('&TABLE_NAME') AND owner IN ( '&SCHEMA_NAME' )
+and PARTITION_NAME IN upper(SELECT PARTITION_NAME FROM DBA_TAB_PARTITIONS WHERE TABLE_NAME=upper('&TABLE_NAME') AND TABLE_OWNER IN ( '&SCHEMA_NAME' )) 
+group by PARTITION_NAME;
+
+
+
+OAM99A1O
+ALTER SYSTEM FLUSH BUFFER_CACHE;
+
+ set line 150
+ col PARAMETER format a30
+ col DESCRIPTION format a60
+ col SESSION_VALUE format a10
+ col INSTANCE_VALUE format a10
+ spool HIDDEN_parameter_database.log
+
+
+	 SELECT a.ksppinm AS parameter,
+			a.ksppdesc AS description,
+			b.ksppstvl AS session_value,
+			c.ksppstvl AS instance_value
+	 FROM   x$ksppi a,
+			x$ksppcv b,
+			x$ksppsv c
+	 WHERE  a.ksppinm='_gc_element_percent' 
+	 and a.indx = b.indx
+	 AND    a.indx = c.indx
+	 AND    a.ksppinm LIKE '/_%' ESCAPE '/'
+	 ORDER BY a.ksppinm;
+
+spool off
+
+
+expdp '"/ as sysdba"' directory=DATA_PUMP_DIR schemas=QINETIC_BTC  include=procedure:\"IN \(\'GET_QUERY_TABELLA\',\'SCRIVITABELLAINDIRECTORY\'\)\" dumpfile=QNTCCP1O_HOST00010270609.dmp logfile=QNTCCP1O_HOST00010270609.log
+
+
+col Limit format A35
+col resource_name format A35
+col profile format A25
+select  PROFILE,    RESOURCE_NAME, LIMIT from dba_profiles where profile = (select profile from dba_users where username='UT41143') and RESOURCE_NAME LIKE 'LOGICAL_READS_PER_%';
+ALTER PROFILE CE_PROFILE LIMIT LOGICAL_READS_PER_CALL unlimited;
+
+exec dbms_stats.gather_schema_stats(  ownname=> 'CSTIMF',  estimate_percent => dbms_stats.auto_sample_size,  cascade=> TRUE,   degree=> 4)
+/
+
+exec dbms_stats.gather_table_stats(ownname=>'RKS_APPLICATIVO',tabname=>'FT_GARANTE',GRANULARITY=>'GLOBAL AND PARTITION',estimate_percent=>dbms_stats.auto_sample_size,cascade=>true,degree=>8);
+
+exec dbms_stats.gather_table_stats(ownname=>'RKS_APPLICATIVO',tabname=>'MIFIDSUBJECTSCODE',estimate_percent=>dbms_stats.auto_sample_size,cascade=>true);
+TRX_CREDITTRANSFER
+
+run {
+delete noprompt archivelog until time = 'sysdate-1' backed up 1 times to sbt ;
+}
+
+
+welcome1trevenezie_itg, trevenezie_bi_itg, trevenezie_ext_itg 
+list Directories:
+set linesize 300 pagesize 300
+col OWNER format a20
+col DIRECTORY_NAME format a30
+col DIRECTORY_PATH  format a100
+select * from dba_directories;
+
+exp_VALCEP1O_DBO.%U.dmp
+expdp schemas=ANOPM,BBOPM,C3OPM,CHOPM,HIOPM,OZOPM content=metadata_only exclude=table,view,package,procedure,trigger,sequence,synonym,FUNCTION,MATERIALIZED_VIEW,statistics dumpfile=OPM99A4OSchemas_meta.dmp directory=EXPDIR1
+
+impdp schemas=ANOPM,BBOPM,C3OPM,CHOPM,HIOPM,OZOPM dumpfile=OPM99A4OSchemas_meta.dmp directory=DATA_PUMP_EXP
+
+nohup impdp '"/ as sysdba"' schemas=betica,betica_bi,betica_ext  remap_schema=betica:BETICA_ITG,betica_bi:BETICA_BI_ITG,betica_ext:BETICA_EXT_ITG remap_tablespace=betica:BETICA_ITG,betica_bi:BETICA_BI_ITG,betica_ext:BETICA_EXT_ITG dumpfile=HOST00009882662.dmp logfile=HOST00009882662_imp.log &
+
+Dynamically drop users:
+
+BEGIN
+FOR r IN (select username, sid,serial# from v$session where upper(username) in ('ANOPM','BBOPM','C3OPM','CHOPM','HIOPM','OZOPM'))
+LOOP
+EXECUTE IMMEDIATE 'alter user ' || r.username || ' account lock';
+EXECUTE IMMEDIATE 'alter system kill session ''' || r.sid|| ',' || r.serial# || ''' immediate';
+END LOOP;
+END;
+/
+
+BEGIN
+FOR r IN (select username from dba_users where upper(username) in ('ANOPM','BBOPM','C3OPM','CHOPM','HIOPM','OZOPM'))
+LOOP
+EXECUTE IMMEDIATE 'drop user ' || r.username || ' cascade';
+END LOOP;
+END;
+/ 
+
+BEGIN
+FOR r IN (select username, sid,serial# from gv$session where upper(username) in ('ANOPM','BBOPM','C3OPM','CHOPM','HIOPM','OZOPM'))
+LOOP
+EXECUTE IMMEDIATE 'alter user ' || r.username || ' account lock';
+--EXECUTE IMMEDIATE 'alter system kill session ''' || r.sid|| ',' || r.serial# || ''' immediate';
+END LOOP;
+END;
+/
+alter system kill session '2348,20767,@2' immediate;
+
+
+
+select 'alter system kill session '||''''||sid||','||serial#||','  ||'@'||INST_ID||''''||' immediate;'      from gv$session 
+    where USERNAME in ('ANOPM','BBOPM','C3OPM','CHOPM','HIOPM','OZOPM');
+	
+
+	
+BEGIN
+FOR r IN (select username, sid,serial#,inst_id from gv$session where upper(username) in ('ANOPM','BBOPM','C3OPM','CHOPM','HIOPM','OZOPM'))
+LOOP
+EXECUTE IMMEDIATE 'alter user ' || r.username || ' account lock';
+EXECUTE IMMEDIATE 'alter system kill session ''' || r.sid|| ',' || r.serial# || ',\@' || r.inst_id || ''' immediate';
+END LOOP;
+END;
+/
+BEGIN
+FOR r IN (select username from dba_users where upper(username) in ('ANOPM','BBOPM','C3OPM','CHOPM','HIOPM','OZOPM'))
+LOOP
+EXECUTE IMMEDIATE 'drop user ' || r.username || ' cascade';
+END LOOP;
+END;
+/ 
+
+impdp schemas=ANOPM dumpfile=HOST00009882662_meta.dmp.dmp directory=EXPDIR4
+
+
+expdp \"/ as sysdba\" directory=DATAPUMP dumpfile=CUSTOMER%U.dmp logfile=CUSTOMER.log parallel=64 cluster=n exclude=statistics  tables=MEHMETSALIH.CUSTOMER query=MEHMETSALIH.CUSTOMER:'"WHERE membership_time>sysdate-30"'
+
+expdp directory=EXPDIR2 dumpfile=HOST00009538979_%U.dmp COMPRESSION=ALL logfile=HOST00009538979.log parallel=4 exclude=statistics tables=APPL.V2MOVCARTE,APPL.V2MOVCARTEEGO,APPL.V2MOVIMENTICC query=APPL.V2MOVIMENTICC:'"WHERE DATA_OPERAZIONE > SYSDATE-30"'
+
+impdp directory=exp_dir table_exists_action=append dumpfile=HOST00009538979_%U.dmplogfile=HOST00009538979_imp.log parallel=4 tables=APPL.V2MOVCARTE,APPL.V2MOVCARTEEGO,APPL.V2MOVIMENTICC
+
+
+set serverout on;
+exec dbms_qopatch.get_sqlpatch_status;
+
+
+
+SVILUPPO: IN05DC2X.CED.IT:1521:SML99S2O     PATCH LEVEL JUL2020 (19.8.0.0.200714)
+COLLAUDO: IN05DC2X.CED.IT:1522:SML99C2O     PATCH LEVEL JUL2020 (19.8.0.0.200714)
+ADDESTRAMENTO: XO11AX-SCAN2:1521:SML99A1OSRV1 (ANCHE XO21AX-SCAN2) 12.1.0.2.0 No patch
+PRODUZIONE: XO11PX-SCAN1:1521:SML99P1OSRV1 (ANCHE XO21PX-SCAN1)    12.1.0.2.0 No patch
+
+set linesize 300;
+select * from V$RECOVERY_AREA_USAGE;
+
+delete archivelog all backed up 1 times to SBT_TAPE;
+
+
+
+DECLARE @ScriptToExecute VARCHAR(MAX);
+SET @ScriptToExecute = '';
+SELECT
+@ScriptToExecute = @ScriptToExecute +
+'USE ['+ d.name +']; CHECKPOINT; DBCC SHRINKFILE ('+f.name+');'
+FROM sys.master_files f
+INNER JOIN sys.databases d ON d.database_id = f.database_id
+WHERE f.type = 1 AND d.database_id > 4 AND d.state_desc='ONLINE'
+-- AND d.name = 'NameofDB'
+SELECT @ScriptToExecute ScriptToExecute
+EXEC (@ScriptToExecute)
+
+
+convert database esb99p2ox12 to snapshot standby;
+
+SELECT SERVERPROPERTY('MachineName');
+SELECT SERVERPROPERTY('InstanceName');
+SELECT SERVERPROPERTY('ServerName');
+SELECT SERVERPROPERTY('ComputerNamePhysicalNetBIOS');
+
+
+
+SET SERVEROUTPUT ON
+DECLARE
+  l_sql_tune_task_id  VARCHAR2(100);
+BEGIN
+  l_sql_tune_task_id := DBMS_SQLTUNE.create_tuning_task (
+                          begin_snap  => 50015,
+                          end_snap    => 50018,
+                          sql_id      => 'b71shnwuqhbtf',
+                          time_limit  => 1200,
+                          task_name   => 'b71shnwuqhbtf_AWR_tuning_task',
+                          description => 'Tuning task for statement b71shnwuqhbtf in AWR.');
+  DBMS_OUTPUT.put_line('l_sql_tune_task_id: ' || l_sql_tune_task_id);
+END;
+/
+
+EXEC DBMS_SQLTUNE.execute_tuning_task(task_name => 'b71shnwuqhbtf_AWR_tuning_task');
+
+SET LONG 10000;
+SET PAGESIZE 1000
+SET LINESIZE 200
+SELECT DBMS_SQLTUNE.report_tuning_task('b71shnwuqhbtf_AWR_tuning_task') AS recommendations FROM dual;
+SET PAGESIZE 24
+
+
+
+-- Tuning task created for specific a statement from the cursor cache.
+DECLARE
+  l_sql_tune_task_id  VARCHAR2(100);
+BEGIN
+  l_sql_tune_task_id := DBMS_SQLTUNE.create_tuning_task (
+                          sql_id      => 'b71shnwuqhbtf',
+                          scope       => DBMS_SQLTUNE.scope_comprehensive,
+                          time_limit  => 60,
+                          task_name   => 'b71shnwuqhbtf_AWR_tuning_task',
+                          description => 'Tuning task for statement b71shnwuqhbtf.');
+  DBMS_OUTPUT.put_line('l_sql_tune_task_id: ' || l_sql_tune_task_id);
+END;
+/
+
+
+-- Tuning task created for a manually specified statement.
+DECLARE
+  l_sql               VARCHAR2(500);
+  l_sql_tune_task_id  VARCHAR2(100);
+BEGIN
+  l_sql := 'SELECT e.*, d.* ' ||
+           'FROM   emp e JOIN dept d ON e.deptno = d.deptno ' ||
+           'WHERE  NVL(empno, ''0'') = :empno';
+
+  l_sql_tune_task_id := DBMS_SQLTUNE.create_tuning_task (
+                          sql_text    => l_sql,
+                          bind_list   => sql_binds(anydata.ConvertNumber(100)),
+                          user_name   => 'scott',
+                          scope       => DBMS_SQLTUNE.scope_comprehensive,
+                          time_limit  => 60,
+                          task_name   => 'emp_dept_tuning_task',
+                          description => 'Tuning task for an EMP to DEPT join query.');
+  DBMS_OUTPUT.put_line('l_sql_tune_task_id: ' || l_sql_tune_task_id);
+END;
+/
+
+ILOM SNAPSHOT
+
+[CRSRVCYB-NIXADM2@ph01ap1x ~]$ ssh root@10.201.21.30
+The authenticity of host '10.201.21.30 (10.201.21.30)' can't be established.
+RSA key fingerprint is 41:b7:1c:26:c1:0a:8d:f9:f1:a9:18:b4:8e:8e:e0:27.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '10.201.21.30' (RSA) to the list of known hosts.
+Password:
+
+Oracle(R) Integrated Lights Out Manager
+
+Version 5.0.1.28 r140682
+
+Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+
+Warning: HTTPS certificate is set to factory default.
+
+Hostname: xo21xdbadm01-ilom
+
+-> set /SP/diag/snapshot dataset=normal
+Set 'dataset' to 'normal'
+
+-> set /SP/diag/snapshot dump_uri=sftp://root:welcome1@10.201.21.25/tmp
+Set 'dump_uri' to 'sftp://root:welcome1@10.201.21.25/tmp'
+
+-> cd /SP/diag/snapshot
+/SP/diag/snapshot
+
+-> show
+
+ /SP/diag/snapshot
+    Targets:
+
+    Properties:
+        dataset = normal
+        dump_uri = (Cannot show property)
+        encrypt_output = false
+        result = Running
+	

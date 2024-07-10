@@ -1,0 +1,25 @@
+useradd postgres
+mkdir -p /pgdata/11/data
+chown -R postgres /pgdata
+yum install postgresql11-server
+systemctl edit postgresql-11.service
+
+[Service]
+Environment=PGDATA=/pgdata/10/data
+
+systemctl daemon-reload
+
+/usr/pgsql-11/bin/postgresql-11-setup initdb
+
+ls /pgdata/11/data/
+
+systemctl start postgresql-11
+systemctl enable postgresql-11
+
+cat /home/postgres/.bash_profile
+
+export PGDATA="/pgdata/11/data" 
+export PGHOME="/usr/pgsql-11" 
+export PATH="$PGHOME/bin/:$PATH" 
+
+psql -AqXt -c "SELECT count(*) FROM pg_stat_activity"    -- 

@@ -1,0 +1,343 @@
+########################
+## LE PP PDC/SDC ##
+########################
+
+# Check connection
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba <<EOF
+set lines 200 pages 200
+col USERHOST for a50
+col OS_USERNAME for a30
+alter session set nls_date_format='dd-MON-yyyy hh24:mi:ss';
+select USERHOST, OS_USERNAME, max(TIMESTAMP) LastLogin
+from dba_audit_trail 
+group by USERHOST, OS_USERNAME 
+order by 1,2;
+
+set lines 200 pages 200
+col machine for a40
+col username for a30
+col osuser for a30
+select machine, username, osuser, count(*) 
+from gv\$session 
+group by machine, username, osuser 
+order by 1,2,3;
+EOF
+
+# Database RMAN backup
+# On node le-ntes-rac51
+# As "oracle" user
+mkdir -p /app/db_acfs/rman_backups/${ORACLE_UNQNAME}
+source /opt/oracle/rdbms_le3_env.sh
+rman target / <<EOF
+CONFIGURE CHANNEL DEVICE TYPE DISK FORMAT   '/app/db_acfs/rman_backups/${ORACLE_UNQNAME}/full_%u_%s_%p'; 
+CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS; 
+BACKUP AS COMPRESSED BACKUPSET DATABASE PLUS ARCHIVELOG;
+list backup summary;
+report need backup;
+EOF
+gzip -9 /app/db_acfs/rman_backups/${ORACLE_UNQNAME}/*
+
+
+# Check opatch version and patch level (19.7)
+# ON BOTH NODES LE-NTES-RAC51/52
+# As "oracle" user
+export ORACLE_HOME=/app/oracle/product/19.0.0/dbhome_1
+/app/oracle/product/19.0.0/dbhome_1/OPatch/opatch version
+/app/oracle/product/19.0.0/dbhome_1/OPatch/opatch lspatches
+ 
+
+# Check opatch version and patch level (19.7)
+# ON BOTH NODES LE-NTES-RAC01/02
+# As "oracle" user
+export ORACLE_HOME=/app/oracle/product/19.0.0/dbhome_1
+/app/oracle/product/19.0.0/dbhome_1/OPatch/opatch version
+/app/oracle/product/19.0.0/dbhome_1/OPatch/opatch lspatches
+
+
+# Create pre-upgrade directory
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+mkdir -p /opt/oracle/upgrade/${ORACLE_UNQNAME}
+ls -ld /opt/oracle/upgrade/${ORACLE_UNQNAME}
+
+# Save cluster info for later:
+crsstat | tee /opt/oracle/upgrade/${ORACLE_UNQNAME}/crs_res_before_upg.txt
+
+# Get invalid objects
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba <<EOF
+spool /opt/oracle/upgrade/${ORACLE_UNQNAME}/preupgrade_invalid.txt
+set line 300 pages 1000  
+col owner for a30  
+COLUMN object_name FORMAT A30  
+SELECT owner,   object_type,   object_name,   status  
+FROM   dba_objects  
+WHERE  status = 'INVALID'  
+ORDER BY owner, object_type, object_name;
+spool off
+exit
+EOF
+
+
+# Run the pre-upgrade jar
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+/app/oracle/product/19.0.0/dbhome_1/jdk/bin/java -jar /app/oracle/product/19.0.0/dbhome_1/rdbms/admin/preupgrade.jar TERMINAL TEXT  dir /opt/oracle/upgrade/${ORACLE_UNQNAME}
+#cat /app/oracle/cfgtoollogs/${ORACLE_UNQNAME}/preupgrade/preupgrade.log
+
+# if needed, run the preupgrade_fixups.sql script
+source /opt/oracle/rdbms_le3_env.sh
+nohup sqlplus / as sysdba @/opt/oracle/upgrade/${ORACLE_UNQNAME}/preupgrade_fixups.sql &
+
+
+# Stop DG replica
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+dgmgrl / <<EOF
+show configuration
+edit configuration set protection mode as maxperformance;
+edit database mle3ppes set state='transport-off';
+edit database mle3ppes_sdc set state='apply-off';
+show configuration
+EOF
+
+# Stop DG broker
+# On node le-ntes-rac51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba <<EOF
+alter system set dg_broker_start=false scope=both sid='*';
+show parameter dg_broker_start
+show spparameter dg_broker_start
+EOF
+
+# Stop DG broker
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba <<EOF
+alter system set dg_broker_start=false scope=both sid='*';
+show parameter dg_broker_start
+show spparameter dg_broker_start
+EOF
+
+# Shutdown standby database
+# On node le-ntes-rac01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+# Save cluster info for later:
+mkdir -p /opt/oracle/upgrade/${ORACLE_UNQNAME}
+crsstat | tee /opt/oracle/upgrade/${ORACLE_UNQNAME}/crs_res_before_upg.txt
+srvctl config database -d ${ORACLE_UNQNAME} | tee /opt/oracle/upgrade/${ORACLE_UNQNAME}/db_config.txt
+srvctl stop database -d ${ORACLE_UNQNAME}
+
+
+# Copy old ORACLE_HOME dbs content into new ORACLE_HOME
+# ON BOTH NODES LE-NTES-RAC01/02
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+cp $ORACLE_HOME/dbs/init$ORACLE_SID* /app/oracle/product/19.0.0/dbhome_1/dbs/
+
+## >>>>>>> DO NOT run next part if other databases have been already upgraded !!!!!! <<<<<<<< ##
+
+# Copy old ORACLE_HOME network/admin content into new ORACLE_HOME
+# ON BOTH NODES LE-NTES-RAC01/02
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+cp /app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora.before_${ORACLE_UNQNAME}_upgrade
+cp /app/oracle/product/19.0.0/dbhome_1/network/admin/sqlnet.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/sqlnet.ora.before_${ORACLE_UNQNAME}_upgrade
+
+cp $ORACLE_HOME/network/admin/tnsnames.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+cp $ORACLE_HOME/network/admin/sqlnet.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/sqlnet.ora
+
+## >>>>>>> ------------------------------------------------------------------------- <<<<<<<< ##
+
+# Edit env file on standby
+# ON BOTH NODES LE-NTES-RAC01/02
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+vi /opt/oracle/rdbms_le3_env.sh
+egrep -e " ORACLE_HOME| GRID" /opt/oracle/rdbms_le3_env.sh
+
+
+# Edit OracleHome into /etc/oratab 
+# ON BOTH NODES LE-NTES-RAC01/02
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+vi /etc/oratab
+grep ${ORACLE_UNQNAME} /etc/oratab
+
+
+# Edit OracleHome into Cluster Registry
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+/app/oracle/product/12.1.0.2/db_1/bin/srvctl config database -d ${ORACLE_UNQNAME} | grep home
+srvctl upgrade database -d ${ORACLE_UNQNAME} -o $ORACLE_HOME
+srvctl config database -d ${ORACLE_UNQNAME} | grep home
+
+
+# Start the standby database in mount mode
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+srvctl start database -d ${ORACLE_UNQNAME} -o mount
+
+
+# Upgrade primary database
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+nohup /app/oracle/product/19.0.0/dbhome_1/bin/dbua -silent -dbname ${ORACLE_UNQNAME} -oracleHome $ORACLE_HOME -sysDBAUserName sys -sysDBAPassword 'CHANGEM3' &
+...
+76% complete
+87% complete
+Database upgrade has been completed successfully, and the database is ready to use.
+100% complete
+
+
+# Copy old ORACLE_HOME dbs content into new ORACLE_HOME
+# ON BOTH NODES LE-NTES-RAC51/52
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+/app/oracle/product/19.0.0/dbhome_1/bin/srvctl config database -d ${ORACLE_UNQNAME} | grep Spfile
+ls -la $ORACLE_HOME/dbs/init$ORACLE_SID*
+cp $ORACLE_HOME/dbs/init$ORACLE_SID* /app/oracle/product/19.0.0/dbhome_1/dbs/
+vi /app/oracle/product/19.0.0/dbhome_1/dbs/init${ORACLE_UNQNAME}*.ora
+
+## >>>>>>> DO NOT run next part if other databases have been already upgraded !!!!!! <<<<<<<< ##
+
+# Copy old ORACLE_HOME network/admin content into new ORACLE_HOME
+# ON BOTH NODES LE-NTES-RAC51/52
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+cp /app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora.before_${ORACLE_UNQNAME}_upgrade
+cp /app/oracle/product/19.0.0/dbhome_1/network/admin/sqlnet.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/sqlnet.ora.before_${ORACLE_UNQNAME}_upgrade
+
+cp $ORACLE_HOME/network/admin/tnsnames.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+cp $ORACLE_HOME/network/admin/sqlnet.ora /app/oracle/product/19.0.0/dbhome_1/network/admin/sqlnet.ora
+
+## >>>>>>> ------------------------------------------------------------------------- <<<<<<<< ##
+
+
+# Edit env file on PRIMARY
+# ON BOTH NODES LE-NTES-RAC51/52
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+vi /opt/oracle/rdbms_le3_env.sh
+egrep -e " ORACLE_HOME| GRID" /opt/oracle/rdbms_le3_env.sh
+
+
+# Edit OracleHome into /etc/oratab 
+# ON BOTH NODES LE-NTES-RAC51/52
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+vi /etc/oratab
+grep ${ORACLE_UNQNAME} /etc/oratab
+
+
+# Run post-upgrade script
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba @/opt/oracle/upgrade/${ORACLE_UNQNAME}/postupgrade_fixups.sql
+
+
+# Check current TZ used
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba <<EOF
+set lines 200
+select * from v\$timezone_file;
+
+SELECT PROPERTY_NAME, SUBSTR(property_value, 1, 30) value
+FROM DATABASE_PROPERTIES
+WHERE PROPERTY_NAME LIKE 'DST_%'
+ORDER BY PROPERTY_NAME;
+EOF
+
+# Get invalid objects post-upgrade
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+sqlplus / as sysdba <<EOF
+spool /opt/oracle/upgrade/${ORACLE_UNQNAME}/postupgrade_invalid.txt
+set line 300 pages 1000  
+col owner for a30  
+COLUMN object_name FORMAT A30  
+SELECT owner,   object_type,   object_name,   status  
+FROM   dba_objects  
+WHERE  status = 'INVALID'  
+ORDER BY owner, object_type, object_name;
+spool off
+exit
+EOF
+
+
+### Restart database
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+srvctl stop database -d ${ORACLE_UNQNAME}
+srvctl start database -d ${ORACLE_UNQNAME}
+srvctl status database -d ${ORACLE_UNQNAME}
+srvctl status service -d ${ORACLE_UNQNAME}
+
+## IF DATABASE UNIQUE NAME HAS TO BE CHANGED, SKIP TO NEXT PART "## Change database unique name"
+
+# Start DG broker
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+alter system set dg_broker_start=true scope=both sid='*';
+show parameter dg_broker_start
+show spparameter dg_broker_start
+
+
+# Start DG broker
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+alter system set dg_broker_start=true scope=both sid='*';
+show parameter dg_broker_start
+show spparameter dg_broker_start
+
+
+# Start DG replica
+# On node le-ntes-rac51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+dgmgrl /
+show configuration
+show database mle3ppes_sdc
+edit database mle3ppes set state='transport-on';
+edit database mle3ppes_sdc set state='apply-on';
+show database mle3ppes_sdc
+edit configuration set protection mode as maxavailability;
+show configuration
+
+
+### Restart database
+# ON NODE LE-NTES-RAC01
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+srvctl stop database -d ${ORACLE_UNQNAME}
+srvctl start database -d ${ORACLE_UNQNAME}
+srvctl status database -d ${ORACLE_UNQNAME}
+srvctl status service -d ${ORACLE_UNQNAME}
+
+
+# Check DG replica
+# ON NODE LE-NTES-RAC51
+# As "oracle" user
+source /opt/oracle/rdbms_le3_env.sh
+dgmgrl /
+show configuration
+show database mle3ppes_sdc
+

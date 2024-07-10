@@ -1,0 +1,246 @@
+PRECHECKS
+
+
+
+
+
+1) mkdir -p /backupdir/LEODBIST08
+
+-----COMMENT THE CRONTAB BACKUP ENTRIES-----
+
+#50 19 * * * /backupdir/scripts/allfullbackup_8.sh >/dev/null 2>&1
+ cat /backupdir/scripts/allarchivebackup.sh
+#rman target sys/sysLEODBIST08@Cup-ADT-PS catalog rman_leodbist08_user/rman_leodbist08_pwd@RMANREPO @/backupdir/scripts/archive_backup_db.cmd log=/backupdir/scripts/log/arch_LEODBIST08.log append &
+
+echo "alter database force logging;" |sqlplus / as sysdba 
+
+echo "show parameters log_archive_dest_1;" |sqlplus / as sysdba 
+
+echo "alter system set log_archive_dest_1='LOCATION=/backupdir/LEODBIST08 MANDATORY REOPEN=5' scope=both;" |sqlplus / as sysdba
+
+echo "ALTER SYSTEM SET DB_RECOVERY_FILE_DEST = '' scope=both;" |sqlplus / as sysdba 
+ 
+
+echo "show parameters log_archive_dest_1;" |sqlplus / as sysdba 
+
+echo "create pfile='/backupdir/LEODBIST08/initLEODBIST08.ora' from memory;" |sqlplus / as sysdba 
+
+
+
+cd /backupdir/LEODBIST08/
+
+!!!COMMENT CRONTAB BACKUP!!!!
+
+cd /backupdir/LEODBIST08/
+
+
+vi backup_LEODBIST08.rm
+
+run{
+allocate channel t1 type disk MAXPIECESIZE=192G;
+BACKUP  format '/backupdir/LEODBIST08/2BK%U' DATABASE plus archivelog;
+backup current controlfile format '/backupdir/LEODBIST08/control.bks';
+}
+
+nohup rman target / log=backup_LEODBIST08.log @backup_LEODBIST08.rm &
+
+tail -f backup_LEODBIST08.log  -- execute this after the rman backup command
+
+echo "alter database create standby controlfile as '/backupdir/LEODBIST08/standby.ctl';" | sqlplus / as sysdba
+
+
+
+13):
+Restore/Recover the Full back up on to target ORACLE Server
+
+#RMAN Restore Commands: 
+
+cd /backupdir/LEODBIST08
+
+
+
+vi /backupdir/LEODBIST08/restore_LEODBIST08.rm
+run{
+allocate channel t1 type disk;
+restore database;
+}
+
+rman target /
+restore controlfile from '/backupdir/LEODBIST08/standby.ctl';
+alter database mount;
+exit
+
+nohup rman target / @/backupdir/LEODBIST08/restore_LEODBIST08.rm log=restore_LEODBIST08.log &
+
+tail -100f restore_LEODBIST08.log
+	
+
+
+CUTOVER
+
+#on primary - source:
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system checkpoint;
+alter system checkpoint;
+alter system checkpoint;
+SHUTDOWN IMMEDIATE;
+
+
+on destination:
+#WHEN FINISHED BEGIN THE STANBY RECOVERY PROCESS:
+
+alter database recover automatic standby database until cancel;
+
+
+alter database recover cancel;
+
+alter database activate standby database;
+
+alter database open;
+
+
+startup
+
+
+
+column REDOLOG_FILE_NAME format a50 
+SELECT a.GROUP#, a.THREAD#, a.SEQUENCE#, a.ARCHIVED, a.STATUS,
+ b.MEMBER AS REDOLOG_FILE_NAME,  (a.BYTES/1024/1024) AS SIZE_MB
+FROM v$log a JOIN v$logfile b ON a.Group#=b.Group#
+ORDER BY a.GROUP#;	
+
+#MIGRATE REDO TO ASM:
+alter database add logfile size 100m;
+alter database add logfile size 100m;
+alter database add logfile size 100m;
+alter database add logfile size 100m;
+alter system switch logfile;
+alter system switch logfile;
+alter system switch logfile;
+alter system checkpoint;
+alter database drop logfile group 1;
+alter database drop logfile group 2;
+alter database drop logfile group 3;
+
+set linesize 200
+column REDOLOG_FILE_NAME format a50 
+SELECT a.GROUP#, a.THREAD#, a.SEQUENCE#, a.ARCHIVED, a.STATUS,
+ b.MEMBER AS REDOLOG_FILE_NAME,  (a.BYTES/1024/1024) AS SIZE_MB
+FROM v$log a JOIN v$logfile b ON a.Group#=b.Group#
+ORDER BY a.GROUP#;	
+
+###################################FOR PRIMARY DATABASE###################################
+declare
+   cursor rlc is
+      select group# grp, thread# thr, bytes/1024 bytes_k, 'NO' srl
+        from v$log
+      union
+      select group# grp, thread# thr, bytes/1024 bytes_k, 'YES' srl
+        from v$standby_log
+      order by 1;
+   stmt     varchar2(2048);
+   swtstmt  varchar2(1024) := 'alter system switch logfile';
+   ckpstmt  varchar2(1024) := 'alter system checkpoint global';
+begin
+   for rlcRec in rlc loop
+      if (rlcRec.srl = 'YES') then
+         stmt := 'alter database add standby logfile thread ' ||
+                 rlcRec.thr || ' size ' || 
+                 rlcRec.bytes_k || 'K';
+         execute immediate stmt;
+         stmt := 'alter database drop standby logfile group ' || rlcRec.grp;
+         execute immediate stmt;
+      else
+         stmt := 'alter database add logfile thread ' ||
+                 rlcRec.thr || ' size ' ||  
+                 rlcRec.bytes_k || 'K';
+         execute immediate stmt;
+         begin
+            stmt := 'alter database drop logfile group ' || rlcRec.grp;
+            dbms_output.put_line(stmt);
+            execute immediate stmt;
+         exception
+            when others then
+               execute immediate swtstmt;
+               execute immediate ckpstmt;
+               execute immediate stmt;
+         end;
+      end if;
+   end loop;
+end;
+/
+
+###################################FOR STANDBY################################### 
+
+declare
+   cursor srlc is select lf.member, l.bytes
+                    from v$standby_log l, v$logfile lf
+                   where l.group# = lf.group#
+                     and lf.type = 'STANDBY';
+   type numTab_t is table of number index by binary_integer;
+   type charTab_t is table of varchar2(1024) index by binary_integer;
+   byteslist numTab_t;
+   namelist  charTab_t;
+   procedure migratesrl(name IN varchar2, bytes IN number) is
+      stmt     varchar2(1024);
+   begin
+      stmt := 'alter database add standby logfile size ' || bytes;
+      execute immediate stmt;
+      stmt := 'alter database drop standby logfile ''' || name || '''';
+      execute immediate stmt;
+   end;
+begin
+   open srlc;
+   fetch srlc bulk collect into namelist, byteslist;
+   close srlc;
+   for i in 1..namelist.count loop
+      migratesrl(namelist(i), byteslist(i));
+   end loop;
+end;
+
+
+
+
+begin
+for log_cur in ( select group# group_no from v$log )
+loop
+execute immediate 'alter database clear logfile group '||log_cur.group_no;
+end loop;
+end;
+/
+ 
+begin
+for log_cur in ( select group# group_no from v$standby_log )
+loop
+execute immediate 'alter database clear logfile group '||log_cur.group_no;
+end loop;
+end;
+/
+
+With DB profile
+
+
+
+with ASM profile:
+
+
+srvctl add database -d LEODBIST08 -n LEODBIST08 -o $ORACLE_HOME -p +DATA/spfileLEODBIST08.ora -s OPEN  -t IMMEDIATE -y AUTOMATIC
+
+srvctl stop database -d LEODBIST08
+
+srvctl start database -d LEODBIST08
+
+Share the connection string to the users,
+
+exec dbms_stats.gather_database_stats();
+
+copy db backup entry from /lfs/oracle_mount/fifo/etc/rmanc.sid source to destination
+
+add TNS both local and globally
+edit crontab
+
+LEODBIST08
+
+####################################Migration Complete #############################################################

@@ -1,0 +1,150 @@
+cat exp_DEVELOPERS.TBLSTORICOREFERTI.sh
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOREFERTI_3000000.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOREFERTI_6000000.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOREFERTI_9000000.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOREFERTI_12000000.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOREFERTI_15000000.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOREFERTI_REST.par
+
+
+cat exp_DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC.sh
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_9476375.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_12476375.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_15476375.par
+expdp '"/ as sysdba"' parfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_last.par
+
+
+nohup sh -xv exp_DEVELOPERS.TBLSTORICOREFERTI.sh > exp_DEVELOPERS.TBLSTORICOREFERTI.sh.log &
+nohup sh -xv exp_DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC.sh > exp_DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC.sh.log &
+
+nohup expdp '"/ as sysdba"'  parfile=DEVELOPERS_SCHEMA.par >exp_DEVELOPERS_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=EXPORT_SCHEMA.par >exp_EXPORT_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=DNFIRMA_SCHEMA.par >exp_DNFIRMA_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=HL7LAB_SCHEMA.par >exp_HL7LAB_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=NOEMATICA_SCHEMA.par >exp_TRANSITORIO_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=TRANSITORIO_SCHEMA.par >exp_DEVELOPERS_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=OSSEP_SCHEMA.par >exp_OSSEP_SCHEMA.log &
+nohup expdp '"/ as sysdba"'  parfile=OTHER_SCHEMAS.par >exp_OTHER_SCHEMAS.log &
+nohup expdp '"/ as sysdba"' full=y directory=expdir content=metadata_only dumpfile=ORCL_FULL_NR.dmp logfile=ORCL_FULL_NR.log &
+#nohup expdp '"/ as sysdba"' directory=exp_dir INCLUDE=SEQUENCE dumpfile=ALL_SEQUENCE.dmp logfile=ALL_SEQUENCE.log  &
+
+I CONTENUTI DEI VARIE PARFILE:
+cat DEVELOPERS_SCHEMA.par
+SCHEMAS=DEVELOPERS
+dumpfile=DEVELOPERS_SCHEMA.dmp
+logfile=DEVELOPERS_SCHEMA.log
+EXCLUDE=TABLE:"IN('TBLSTORICOREFERTI')"
+directory=expdir
+exclude=statistics
+
+
+cat EXPORT_SCHEMA.par
+SCHEMAS=EXPORT
+dumpfile=EXPORT_SCHEMA.dmp
+logfile=EXPORT_SCHEMA.log
+directory=expdir
+exclude=statistics
+
+cat HL7LAB_SCHEMA.par
+SCHEMAS=HL7LAB
+dumpfile=HL7LAB_SCHEMA.dmp
+logfile=HL7LAB_SCHEMA.log
+directory=expdir
+exclude=statistics
+
+cat NOEMATICA_SCHEMA.par
+SCHEMAS=NOEMATICA
+dumpfile=NOEMATICA_SCHEMA.dmp
+logfile=NOEMATICA_SCHEMA.log
+directory=expdir
+exclude=statistics
+
+cat TRANSITORIO_SCHEMA.par
+SCHEMAS=TRANSITORIO
+dumpfile=TRANSITORIO_SCHEMA.dmp
+logfile=TRANSITORIO_SCHEMA.log
+directory=expdir
+exclude=statistics
+
+cat OSSEP_SCHEMA.par
+SCHEMAS=OSSEP
+dumpfile=OSSEP_SCHEMA.dmp
+logfile=OSSEP_SCHEMA.log
+directory=expdir
+exclude=statistics
+
+cat OTHER_SCHEMAS.par
+EXCLUDE=SCHEMA:"IN('DEVELOPERS','EXPORT','DNFIRMA','HL7LAB','NOEMATICA','TRANSITORIO','OSSEP')"
+FULL=Y
+dumpfile=OTHER_SCHEMAS.dmp
+logfile=OTHER_SCHEMAS.log
+directory=expdir
+exclude=statistics
+
+DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_9476375.par
+tables=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC
+query="where DOCUMENTID<=9476375"
+content=data_only
+dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_9476375.dmp
+logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_9476375.log
+directory=expdir
+
+
+DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_12476375.par
+tables=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC
+query="where DOCUMENTID>9476375 AND DOCUMENTID <=12476375"
+content=data_only
+dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_12476375.dmp
+logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_12476375.log
+directory=expdir
+
+DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_15476375.par
+tables=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC
+query="where DOCUMENTID>12476375 AND DOCUMENTID <=15476375"
+content=data_only
+dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_15476375.dmp
+logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_15476375.log
+directory=expdir
+
+
+DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_last.par
+tables=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC
+query="where DOCUMENTID>15476375"
+content=data_only
+dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_last.dmp
+logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_last.log
+directory=expdir
+
+
+________________________________________________________________________________________________________
+alter system set job_queue_processes=0 scope=both;
+exec dbms_scheduler.set_scheduler_attribute('SCHEDULER_DISABLED','TRUE');
+
+col ATTRIBUTE_NAME for a30
+col VALUE for a60
+set lines 180
+set pages 999
+select * from DBA_SCHEDULER_GLOBAL_ATTRIBUTE;
+
+show parameters job_queue_processes
+
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append tables=DEVELOPERS.TBLSTORICOREFERTI dumpfile=DEVELOPERS.TBLSTORICOREFERTI_3000000.dmp  logfile=DEVELOPERS.TBLSTORICOREFERTI_3000000.dmp.imp.log  & 
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append tables=DEVELOPERS.TBLSTORICOREFERTI dumpfile=DEVELOPERS.TBLSTORICOREFERTI_6000000.dmp  logfile=DEVELOPERS.TBLSTORICOREFERTI_6000000.dmp.imp.log  &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append tables=DEVELOPERS.TBLSTORICOREFERTI dumpfile=DEVELOPERS.TBLSTORICOREFERTI_9000000.dmp  logfile=DEVELOPERS.TBLSTORICOREFERTI_9000000.dmp.imp.log  &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append tables=DEVELOPERS.TBLSTORICOREFERTI dumpfile=DEVELOPERS.TBLSTORICOREFERTI_12000000.dmp logfile=DEVELOPERS.TBLSTORICOREFERTI_12000000.dmp.imp.log &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append tables=DEVELOPERS.TBLSTORICOREFERTI dumpfile=DEVELOPERS.TBLSTORICOREFERTI_15000000.dmp logfile=DEVELOPERS.TBLSTORICOREFERTI_15000000.dmp.imp.log &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append tables=DEVELOPERS.TBLSTORICOREFERTI dumpfile=DEVELOPERS.TBLSTORICOREFERTI_17000000.dmp logfile=DEVELOPERS.TBLSTORICOREFERTI_17000000.dmp.imp.log &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_9476375.dmp  logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_9476375.dmp.imp.log & 
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_12476375.dmp logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_12476375.dmp.imp.log &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_15476375.dmp logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_15476375.dmp.imp.log &
+nohup impdp '"/ as sysdba"' directory=expdir table_exists_action=append dumpfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_last.dmp     logfile=DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC_last.dmp.imp.log &    
+
+
+nohup impdp '"/ as sysdba"' directory=expdir tables=DEVELOPERS.TBLSTORICOREFERTI,DEVELOPERS.TBLSTORICOLNKREFERTIRELATEDDOC logfile=2table_indexes.log include=index &
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=NOEMATICA_SCHEMA.dmp   logfile=NOEMATICA_SCHEMA.dmp.imp.log   & 
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=HL7LAB_SCHEMA.dmp      logfile=HL7LAB_SCHEMA.dmp.imp.log      &
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=TRANSITORIO_SCHEMA.dmp logfile=TRANSITORIO_SCHEMA.dmp.imp.log &
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=OTHER_SCHEMAS.dmp      logfile=OTHER_SCHEMAS.dmp.imp.log      &
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=OSSEP_SCHEMA.dmp       logfile=OSSEP_SCHEMA.dmp.imp.log       &
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=EXPORT_SCHEMA.dmp      logfile=EXPORT_SCHEMA.dmp.imp.log      &
+nohup impdp '"/ as sysdba"' directory=expdir full=y exclude=constraint,trigger dumpfile=DEVELOPERS_SCHEMA.dmp  logfile=DEVELOPERS_SCHEMA.dmp.imp.log  &

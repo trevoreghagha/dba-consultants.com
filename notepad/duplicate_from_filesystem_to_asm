@@ -1,0 +1,117 @@
+ALTER DATABASE ARCHIVELOG;
+SELECT NAME, OPEN_MODE, FORCE_LOGGING,flashback_on FROM V$DATABASE;
+ALTER DATABASE FORCE LOGGING;
+ALTER DATABASE FLASHBACK ON;
+
+
+SID_LIST_LISTENER=
+  (SID_LIST=
+    (SID_DESC=
+    (SDU=65535)
+    (GLOBAL_DBNAME = <primary_db_unique_name>.<primary_db_domain>)
+    (SID_NAME = <source_db_name>)
+    (ORACLE_HOME=<oracle_home_directory>)
+    (ENVS="TNS_ADMIN=<oracle_home_directory>/network/admin")
+    )
+    (SID_DESC=
+    (SDU=65535)
+    (GLOBAL_DBNAME = <primary_db_unique_name>_DGMGRL.<primary_db_domain>)
+    (SID_NAME = <source_db_name>)
+    (ORACLE_HOME=<oracle_home_directory>)
+    (ENVS="TNS_ADMIN=<oracle_home_directory>/network/admin")
+    )
+  )
+  
+  lsnrctl reload LSN_TESTDB11;  lsnrctl status LSN_TESTDB11
+  
+  PRIMARY DATABASE PARAMETERS
+  ALTER SYSTEM SET STANDBY_FILE_MANAGEMENT=AUTO SID='*' SCOPE=SPFILE;
+  ALTER SYSTEM SET ARCHIVE_LAG_TARGET=1800 SID='*' SCOPE=SPFILE;
+  
+  
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE1='/u01/app/oracle/oradata/testdb11/dr1<source_db_name>.dat' SCOPE=BOTH;
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE2='/u01/app/oracle/fast_recovery_area/testdb11/dr2<source_db_name>.dat' SCOPE=BOTH;
+
+ALTER SYSTEM SET DG_BROKER_START=TRUE SCOPE=BOTH;
+
+--ALTER SYSTEM SET DB_BLOCK_CHECKING=FULL SCOPE=BOTH;
+--ALTER SYSTEM SET DB_BLOCK_CHECKSUM=FULL SCOPE=BOTH;
+
+--ALTER SYSTEM SET LOG_BUFFER=268435456 SCOPE=SPFILE;
+
+ALTER SYSTEM SET DB_LOST_WRITE_PROTECT=TYPICAL SCOPE=BOTH;
+
+ALTER DATABASE FLASHBACK ON;
+ALTER SYSTEM SET DB_FLASHBACK_RETENTION_TARGET=120; 
+ALTER SYSTEM ARCHIVE LOG CURRENT;
+
+set linesize 150
+col MEMBER format a50;
+SELECT THREAD#, A.GROUP#, MEMBER, BYTES  FROM V$LOG A, V$LOGFILE B WHERE A.GROUP#=B.GROUP#;
+
+alter database add standby logfile thread 1
+group 4('/u01/app/oracle/oradata/testdb11/stby_redo01.log') size 52428800,
+group 5('/u01/app/oracle/oradata/testdb11/stby_redo02.log') size 52428800,
+group 6('/u01/app/oracle/oradata/testdb11/stby_redo03.log') size 52428800,
+group 7('/u01/app/oracle/oradata/testdb11/stby_redo04.log') size 52428800;
+
+SELECT THREAD#, A.GROUP#, MEMBER, BYTES  FROM V$STANDBY_LOG A, V$LOGFILE B WHERE A.GROUP#=B.GROUP#;
+
+
+
+
+ON STANDBY
+
+SID_LIST_LISTENER=
+  (SID_LIST=
+    (SID_DESC=
+    (SDU=65535)
+    (GLOBAL_DBNAME = <standby db_unique_name>.<standby db_domain>)
+    (SID_NAME = <standby oracle_sid>)
+    (ORACLE_HOME=<oracle home directory>)
+    (ENVS="TNS_ADMIN=<oracle home directory>/network/admin")
+    )
+   
+  )
+  
+
+PFILE=?/dbs/initStandby_db_name.ora
+echo "*.db_name='standby_db_name'" > $ORACLE_HOME/dbs/initstandby_db_name.ora
+echo "*.db_unique_name='standby_db_unique_name'" >> $ORACLE_HOME/dbs/initStandby_db_name.ora
+##echo "*.db_domain='standby_db_domain'" >> $ORACLE_HOME/dbs/initStandby_db_name.ora
+ 
+orapwd file=$ORACLE_HOME/dbs/orapwtarget password=admin_password_for_primary entries=5
+ 
+startup force nomount PFILE=?/dbs/initStandby_db_name.ora
+
+vi dup.rcv
+run {
+allocate channel prmy1 type disk;
+allocate channel prmy2 type disk;
+allocate channel prmy3 type disk;
+allocate channel prmy4 type disk;
+allocate auxiliary channel stby1 type disk;
+allocate auxiliary channel stby2 type disk;
+allocate auxiliary channel stby type disk;
+duplicate target database for standby from active database dorecover
+spfile
+parameter_value_convert '/u02/app/oracle/oradata/<source_db_name>','+DATA'
+set db_unique_name='<target_db_unique_name>'
+set db_create_file_dest='+DATA'
+set db_create_online_log_dest_1='+RECO'
+set db_recovery_file_dest='+RECO'
+set audit_file_dest='/u01/app/oracle/admin/db_name/adump'
+set control_files='+DATA','+RECO'
+set dg_broker_config_file1='+DATA/<target_db_unique_name>/dr1<target_db_unique_name>.dat'
+set dg_broker_config_file2='+RECO/<target_db_unique_name>/dr2<target_db_unique_name>.dat'
+set dispatchers='(PROTOCOL=TCP) (SERVICE=<target_db_name>XDB)'
+set instance_name='<target_db_name>'
+set db_domain='<target_db_domain>'
+set db_recovery_file_dest='+RECO'
+;
+}
+ 
+ 
+ 
+ 
+  

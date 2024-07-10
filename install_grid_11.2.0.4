@@ -1,0 +1,81 @@
+INSTALL 11.2.0.4 on linux 7.*
+
+yum install oracle-rdbms-server-11gR2-preinstall
+
+unzip p13390677_112040_Linux-x86-64_3of7.zip
+
+
+1) DOWNLOAD PATCH  19404309
+set the variable ORA_SHIPS to the path location where you are going to extract the 11.2.0.4 Linuxamd64 shiphomes.
+export ORA_SHIPS=/software/grid
+download and extract the patch p19404309_112040_Linux-x86-64.zip using the command "unzip p19404309_112040_Linux-x86-64.zip"
+cd b19404309
+#cp client/cvu_prereq.xml $ORA_SHIPS/stage/cvu
+#cp client/oracle.client_InstantClient.xml $ORA_SHIPS/client/stage/cvu
+cp grid/cvu_prereq.xml $ORA_SHIPS/stage/cvu
+##cp database/cvu_prereq.xml $ORA_SHIPS/database/stage/cvu
+##cp examples/cvu_prereq.xml $ORA_SHIPS/examples/stage/cvu
+cd ..
+rm -rf b19404309
+
+
+RUN VERIFY TOOL BEFORE INSTALLATION
+
+./runcluvfy.sh stage -pre crsinst -n exa1node1,exa1node2 -r 11gR2 -osdba oinstall  -asm -asmgrp oinstall -asmdev /dev/asmocr01,/dev/asmocr02 -crshome /u01/app/grid/11.0.0/gridhome -fixup  -orainv oinstall 
+
+
+INSTALL FAC CLUSTERWARE IN SILENT MODE
+
+
+cat /software/grid/response/11.2.0.4.rsp	  
+                                                                                
+oracle.install.responseFileVersion=/oracle/install/rspfmt_crsinstall_response_schema_v11_2_0       
+ORACLE_HOSTNAME=exa1node1                                                                          
+INVENTORY_LOCATION=/u01/app/oraInventory                                                           
+SELECTED_LANGUAGES=en                                                                              
+oracle.install.option=CRS_CONFIG                                                                   
+ORACLE_BASE=/u01/app/oracle                                                                        
+ORACLE_HOME=/u01/app/grid/11.0.0/gridhome                                                          
+oracle.install.asm.OSDBA=oinstall                                                                  
+oracle.install.asm.OSOPER=oinstall                                                                 
+oracle.install.asm.OSASM=oinstall                                                                  
+oracle.install.crs.config.gpnp.scanName=exa1node-scan                                              
+oracle.install.crs.config.gpnp.scanPort=1521                                                       
+oracle.install.crs.config.clusterName=exa1node-clu                                                 
+oracle.install.crs.config.gpnp.configureGNS=false                                      
+oracle.install.crs.config.clusterNodes=exa1node1:exa1node1-vip,exa1node2:exa1node2-vip             
+oracle.install.crs.config.networkInterfaceList=GNETTeam0:10.255.90.0:1,GNETTeam1:172.31.255.0:2    
+oracle.install.crs.config.storageOption=ASM_STORAGE                                                
+oracle.install.asm.SYSASMPassword=Bobos_123                                                        
+oracle.install.asm.diskGroup.name=OCRDG                                                            
+oracle.install.asm.diskGroup.redundancy=EXTERNAL                                                   
+oracle.install.asm.diskGroup.AUSize=4                                                              
+oracle.install.asm.diskGroup.disks=/dev/asmocr01,/dev/asmocr02                                     
+oracle.install.asm.diskGroup.diskDiscoveryString=/dev/asm*                                         
+oracle.install.asm.monitorPassword=Bobos_123                                                       
+oracle.install.asm.upgradeASM=false                                                                
+oracle.installer.autoupdates.option=SKIP_UPDATES                                                   
+
+
+./runInstaller -silent -ignorePrereq -force -responsefile /software/grid/response/11.2.0.4.rsp																																 
+														
+
+														
+As a root user, execute the following script(s):
+
+1. /u01/app/oraInventory/orainstRoot.sh  --- RUN THIS ON ALL NODES THEN INSTALL PATCH 18370031 before running root.sh
+
+a) download patch 18370031 and 	6880880 for Opatch
+b) opatch napply -oh $ORACLE_HOME -local /tmp/18370031 apply and each node
+
+
+2. /u01/app/grid/11.0.0/gridhome/root.sh on each node
+
+
+3) /u01/app/grid/11.0.0/gridhome/cfgtoollogs/configToolAllCommands RESPONSE_FILE=$ORACLE_HOME/cfgtoollogs/cfgrsp.properties
+
+cat $ORACLE_HOME/cfgtoollogs/cfgrsp.properties
+
+oracle.assistants.asm|S_ASMPASSWORD=Bobos_123
+oracle.assistants.asm|S_ASMMONITORPASSWORD=Bobos_123
+ 

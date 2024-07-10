@@ -1,0 +1,317 @@
+                                                                       CONFIGURE THE ORACLE DATABROKER
+
+LISTENERS ON ALL FOUR NODES CONFIGURED TO 
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB1N1)
+    (GLOBAL_DBNAME=EXADB1N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB1N2)
+    (GLOBAL_DBNAME=EXADB1N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB2N1)
+    (GLOBAL_DBNAME=EXADB2N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB2N2)
+    (GLOBAL_DBNAME=EXADB2N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+
+
+
+ON ALL NODES 
+vi $ORACLE_HOME/network/admin/tnsnames.ora
+
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa1node2:/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa2node1:/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa2node2:/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+
+
+
+
+EXADB1N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa1node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB1N.trevdom.inf)
+    )
+  )
+
+EXADB2N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa2node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB2N.trevdom.inf)
+    )
+  )
+
+EXADB1N1 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa1node1-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA =
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB1N.trevdom.inf)
+(INSTANCE_NAME = EXADB1N1)
+(UR = A)
+)
+)
+
+
+EXADB1N2 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa1node2-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA 2
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB1N.trevdom.inf)
+(INSTANCE_NAME = EXADB1N2)
+(UR = A)
+)
+)
+
+
+EXADB2N1 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa2node1-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA =
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB2N.trevdom.inf)
+(INSTANCE_NAME = EXADB2N1)
+(UR = A)
+)
+)
+
+EXADB2N2 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa2node2-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA =
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB2N.trevdom.inf)
+(INSTANCE_NAME = EXADB2N2)
+(UR = A)
+)
+)
+
+
+
+ON BOTH NODES
+
+2) Enable DG Broker Parameters:-
+Create the required directories in the ASM diskgroup for the dataguard configuration file and start the DMON process by enabling “dg_broker_start” parameter.
+Primary:-
+asmcmd mkdir +DATI/EXADB1N/DATAGUARDCONFIG
+asmcmd mkdir +RECO/EXADB1N/DATAGUARDCONFIG
+
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE1='+DATI/EXADB1N/DATAGUARDCONFIG/dgb_config01.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE2='+RECO/EXADB1N/DATAGUARDCONFIG/dgb_config02.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET dg_broker_start=true scope=both sid='*';
+
+Standby:-
+asmcmd mkdir +DG_DATI/EXADB2N/DATAGUARDCONFIG
+asmcmd mkdir +DG_RECO/EXADB2N/DATAGUARDCONFIG
+
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE1='+DG_DATI/EXADB2N/DATAGUARDCONFIG/dgb_config01.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE2='+DG_RECO/EXADB2N/DATAGUARDCONFIG/dgb_config02.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET dg_broker_start=true scope=both sid='*';
+
+
+
+
+ON NODE EXA1NODE1(PRIMARY)
+
+[oracle@exa1node1 ~]$ dgmgrl 
+DGMGRL for Linux: Release 18.0.0.0.0 - Production on Sun Apr 28 18:59:12 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle and/or its affiliates.  All rights reserved.
+
+Welcome to DGMGRL, type "help" for information.
+dgmgrl sys/Bobos_123@EXADB1N
+Connected to "EXADB1N"
+Connected as SYSDBA.
+
+CREATE CONFIGURATION DG_EXADB AS PRIMARY DATABASE IS EXADB1N CONNECT IDENTIFIER IS EXADB1N;
+
+
+
+alter system set log_archive_dest_2='SERVICE=EXADB2N LGWR VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=EXADB2N' sid='*' scope=both;
+
+-- STANDBY log_archive_dest_2
+alter system set log_archive_dest_2='SERVICE=EXADB1N LGWR VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=EXADB1N' sid='*' scope=both;
+
+
+
+DGMGRL> show configuration
+
+Configuration - dg_trevdb
+
+  Protection Mode: MaxPerformance
+  Members:
+  EXADB1N - Primary database
+    EXADB2N - Physical standby database 
+
+Fast-Start Failover: DISABLED
+
+Configuration Status:
+SUCCESS   (status updated 82 seconds ago)
+
+DGMGRL> show database EXADB1N
+
+Database - EXADB1N
+
+  Role:               PRIMARY
+  Intended State:     TRANSPORT-ON
+  Instance(s):
+    EXADB1N1
+    EXADB1N2
+
+Database Status:
+SUCCESS
+
+DGMGRL> show database EXADB2N;
+
+Database - EXADB2N
+
+  Role:               PHYSICAL STANDBY
+  Intended State:     APPLY-ON
+  Transport Lag:      0 seconds (computed 1 second ago)
+  Apply Lag:          0 seconds (computed 1 second ago)
+  Average Apply Rate: 3.00 KByte/s
+  Real Time Query:    ON
+  Instance(s):
+    EXADB2N1 (apply instance)
+    EXADB2N2
+
+Database Status:
+SUCCESS
+
+DGMGRL> show configuration verbose
+
+Configuration - dg_trevdb
+
+  Protection Mode: MaxPerformance
+  Members:
+  EXADB1N - Primary database
+    EXADB2N - Physical standby database 
+
+  Properties:
+    FastStartFailoverThreshold      = '30'
+    OperationTimeout                = '30'
+    TraceLevel                      = 'USER'
+    FastStartFailoverLagLimit       = '30'
+    CommunicationTimeout            = '180'
+    ObserverReconnect               = '0'
+    FastStartFailoverAutoReinstate  = 'TRUE'
+    FastStartFailoverPmyShutdown    = 'TRUE'
+    BystandersFollowRoleChange      = 'ALL'
+    ObserverOverride                = 'FALSE'
+    ExternalDestination1            = ''
+    ExternalDestination2            = ''
+    PrimaryLostWriteAction          = 'CONTINUE'
+    ConfigurationWideServiceName    = 'EXADB1N_CFG'
+
+Fast-Start Failover: DISABLED
+
+Configuration Status:
+SUCCESS
+
+CREATE A TABLESPACE AND A TABLE AND VERIFY IF CHANGES WERE PROPAGATED TO THE STANDBY NODE
+oracle@exa1node1 ~$ sqlplus / as sysdba
+
+SQL*Plus: Release 18.0.0.0.0 - Production on Sun Apr 28 19:17:00 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle.  All rights reserved.
+
+
+Connesso a:
+Oracle Database 18c Enterprise Edition Release 18.0.0.0.0 - Production
+Version 19.3.0.0.0
+
+SQL> create tablespace TEST1 datafile '+DATI' size 100m autoextend on next 100m maxsize unlimited;
+
+Creata tablespace.
+
+SQL> create table test_tab (campo1 int,campo2 varchar(10), data date) tablespace TEST1;
+
+Tabella creata.
+
+SQL> alter system switch logfile;
+
+Modificato sistema.
+
+SQL> insert into test_tab values(3,'testing dg',sysdate);
+
+Creata 1 riga.
+
+SQL> commit;
+
+Commit completato.
+
+
+SQL> set linesize  200 pagesize 200
+col name format a50
+select file#,a.name,b.name from v$datafile a, v$tablespace b where a.ts#=b.ts# order by 1;
+SQL> SQL> 
+     FILE# NAME 					      NAME
+---------- -------------------------------------------------- --------------------------------------------------
+	 1 +DATI/EXADB1N/DATAFILE/system.259.1005506119      SYSTEM
+->	 2 +DATI/EXADB1N/DATAFILE/test1.279.1006800447       TEST1     <-
+	 3 +DATI/EXADB1N/DATAFILE/sysaux.260.1005506155      SYSAUX
+	 4 +DATI/EXADB1N/DATAFILE/undotbs1.261.1005506171    UNDOTBS1
+	 5 +DATI/EXADB1N/DATAFILE/undotbs2.267.1005506633    UNDOTBS2
+	 7 +DATI/EXADB1N/DATAFILE/users.262.1005506173       USERS
+
+6 righe selezionate.
+
+
+
+ON STANDBY NODE
+[oracle@exa2node1 dbs]$ sqlplus / as sysdba
+
+SQL*Plus: Release 18.0.0.0.0 - Production on Sun Apr 28 19:13:19 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle.  All rights reserved.
+
+Connesso a:
+Oracle Database 18c Enterprise Edition Release 18.0.0.0.0 - Production
+Version 19.3.0.0.0
+
+SQL> set linesize  200 pagesize 200
+SQL> col name format a50
+SQL> select file#,a.name,b.name from v$datafile a, v$tablespace b where a.ts#=b.ts# order by 1;
+
+     FILE# NAME 					      NAME
+---------- -------------------------------------------------- --------------------------------------------------
+	 1 +DG_DATI/EXADB2N/DATAFILE/system.259.1005863263   SYSTEM 
+->	 2 +DG_DATI/EXADB2N/DATAFILE/test1.278.1006800459    TEST1   <-
+	 3 +DG_DATI/EXADB2N/DATAFILE/sysaux.260.1005863271   SYSAUX
+	 4 +DG_DATI/EXADB2N/DATAFILE/undotbs1.261.1005863277 UNDOTBS1
+	 5 +DG_DATI/EXADB2N/DATAFILE/undotbs2.262.1005863281 UNDOTBS2
+	 7 +DG_DATI/EXADB2N/DATAFILE/users.263.1005863281    USERS
+
+6 righe selezionate.

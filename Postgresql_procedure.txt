@@ -1,0 +1,53 @@
+DO $$ begin raise notice '%',now(); end; $$;
+\timing
+\c 	
+DROP SCHEMA IF EXISTS ARADMIN CASCADE;
+DO $$ begin raise notice '%',now(); end; $$;
+DROP SCHEMA IF EXISTS ARADMIN_PG CASCADE;
+DO $$ begin raise notice '%',now(); end; $$;
+CREATE SCHEMA ARADMIN;
+ALTER ROLE ARADMIN SET search_path = aradmin,public;
+GRANT USAGE ON SCHEMA ARADMIN TO ARADMIN;
+GRANT SELECT ON ALL TABLES IN SCHEMA ARADMIN TO ARADMIN;
+ALTER DEFAULT PRIVILEGES IN SCHEMA ARADMIN GRANT SELECT ON TABLES TO ARADMIN;
+CREATE SCHEMA ARADMIN_PG;
+CREATE EXTENSION oracle_fdw;
+create SERVER HLX99P1P  FOREIGN DATA WRAPPER oracle_fdw OPTIONS (dbserver '10.100.13.222:1521/HLX99P1O');
+grant usage on FOREIGN SERVER HLX99P1P to postgres;
+create user MAPPING FOR ARADMIN_PG SERVER HLX99P1P OPTIONS (USER 'pguser', password 'PgUser2023');
+create user MAPPING FOR postgres SERVER HLX99P1P OPTIONS (USER 'pguser', password 'PgUser2023');
+import foreign schema "ARADMIN" from SERVER HLX99P1P into ARADMIN_PG options (case 'lower');
+DO $$ begin raise notice '%',now(); end; $$;
+
+do $$
+declare
+   tabname text;
+begin
+    for tabname in select TABLE_NAME  from  aradmin_pg.aradmin_tables
+    loop 
+   RAISE NOTICE 'Creating %', tabname;
+   execute 'create TABLE aradmin.' || tabname || ' as select * from aradmin_pg.' || tabname;
+   RAISE NOTICE '%',now();
+   end loop;
+end;
+$$;
+
+DO $$ begin raise notice '%',now(); end; $$;
+
+
+
+createviews.sql | sed 's/\(SUBSTR(\)\([0-9a-zA-Z]\{12\}\),/\1CAST(\2 AS CHAR),/g' | sed 's/\(SUBSTR(\)\([0-9a-zA-Z]\{11\}\),/\1CAST(\2 AS CHAR),/g' | sed 's/DBMS_LOB.SUBSTR/SUBSTR/g' > createviews.sql
+
+
+do $$
+declare
+   tabname text;
+begin
+    for tabname in select TABLE_NAME  from  aradmin_pg.aradmin_tables
+    loop 
+   RAISE NOTICE 'Analyzing %', tabname;
+   execute 'ANALYZE VERBOSE  aradmin.' || tabname;
+   RAISE NOTICE '%',now();
+   end loop;
+end;
+$$;

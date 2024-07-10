@@ -1,0 +1,906 @@
+
+Create RAC physical standby database using RMAN Active Duplication - 19c 
+
+
+RAC standby database and its database instances must be added manually to Oracle Cluster Registry (OCR) as new resources with srvctl command at the end 
+Environment
+Primary (Cluster Database):
+Operating System: Oracle Linux 7.6 (x64) (Red Hat Enterprise Linux Server release 7.6 )
+Oracle Release: 18c (19.3.0.0.0)
+Node(s): exa1node1, exa1node2
+Database Name (DB_NAME): EXADB1N
+Database Unique Name (DB_UNIQUE_NAME): EXADB1N
+Instances: EXADB1N1, EXADB1N2
+SCAN Name: exa1node-scan
+Diskgroup(s): +OCR, +DATI, +RECO
+
+
+Standby (Cluster Database):
+Operating System:Oracle Linux 7.6 (x64) (Red Hat Enterprise Linux Server release 7.6 )
+Oracle Release: 18c (19.3.0.0.0)
+Node(s): exa2node1, exa2node2
+Database Name (DB_NAME): EXADB1N
+Database Unique Name (DB_UNIQUE_NAME): EXADB2N
+Instances: EXADB2N1, EXADB2N2	
+SCAN Name: exa2node-scan
+Diskgroup(s): +OCR, +DG_DATI, +DG_RECO
+
+
+
+Take a note of the differences in DB_UNIQUE_NAME (must be unique), instance names, TNS and ASM diskgroups ( +DG_DATI, +DRFRADG ) at the standby site.
+In my setup, two clusters have already been configured and the primary database (phoenix) is up and running. In this demonstration, I have setup the same DNS server (rhel54.shannura.com) to resolve primary and standby hosts.
+Primary Cluster:
+[grid@exa1node1 ~]$ crsctl stat res -t
+
+
+-------------------------------------------------------------------------------
+Name           Target  State        Server                   State details       
+--------------------------------------------------------------------------------
+Local Resources
+--------------------------------------------------------------------------------
+ora.LISTENER.lsnr
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+ora.chad
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+ora.net1.network
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+ora.ons
+               ONLINE  ONLINE       exa1node1                STABLE
+               ONLINE  ONLINE       exa1node2                STABLE
+--------------------------------------------------------------------------------
+Cluster Resources
+--------------------------------------------------------------------------------
+ora.ASMNET1LSNR_ASM.lsnr(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        ONLINE  OFFLINE                               STABLE
+ora.DATI.dg(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        ONLINE  OFFLINE                               STABLE
+ora.LISTENER_SCAN1.lsnr
+      1        ONLINE  ONLINE       exa1node2                STABLE
+ora.LISTENER_SCAN2.lsnr
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.LISTENER_SCAN3.lsnr
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.OCR.dg(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        OFFLINE OFFLINE                               STABLE
+ora.RECO.dg(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        ONLINE  OFFLINE                               STABLE
+ora.asm(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                Started,STABLE
+      2        ONLINE  ONLINE       exa1node2                Started,STABLE
+      3        OFFLINE OFFLINE                               STABLE
+ora.asmnet1.asmnetwork(ora.asmgroup)
+      1        ONLINE  ONLINE       exa1node1                STABLE
+      2        ONLINE  ONLINE       exa1node2                STABLE
+      3        OFFLINE OFFLINE                               STABLE
+ora.cvu
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.exa1node1.vip
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.exa1node2.vip
+      1        ONLINE  ONLINE       exa1node2                STABLE
+ora.exadb1n.db
+      1        ONLINE  ONLINE       exa1node1                Open,HOME=/u01/app/o
+                                                             racle/product/19.0.0
+                                                             /dbhome_1,STABLE
+      2        ONLINE  INTERMEDIATE exa1node2                Stuck Archiver,HOME=
+                                                             /u01/app/oracle/prod
+                                                             uct/19.0.0/dbhome_1,
+                                                             STABLE
+ora.qosmserver
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.scan1.vip
+      1        ONLINE  ONLINE       exa1node2                STABLE
+ora.scan2.vip
+      1        ONLINE  ONLINE       exa1node1                STABLE
+ora.scan3.vip
+      1        ONLINE  ONLINE       exa1node1                STABLE
+--------------------------------------------------------------------------------
+
+
+
+Oracle Net Configuration
+Configure TNS in the ORACLE_HOMEs as below in both primary and standby node(s):
+
+vi $ORACLE_HOME/network/admin/tnsnames.ora
+
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa1node2:$ORACLE_HOME/network/admin/tnsnames.ora
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa2node1:$ORACLE_HOME/network/admin/tnsnames.ora
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa2node2:$ORACLE_HOME/network/admin/tnsnames.ora
+
+ON NODES EXA1NODE1 AND EXA1NODE2
+EXADB1N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa1node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB1N)
+    )
+  )
+
+EXADB2N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa2node1)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB2N)
+    )
+  )
+  
+
+ON NODES EXA2NODE1 AND EXA2NODE2
+EXADB1N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa1node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB1N)
+    )
+  )
+
+EXADB2N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa2node1)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB2N)(UR=A)   --ON NODE WHERE YOU WILL FIRST RESTORE THE DATABASE
+    )
+  )
+  
+ 
+
+
+A listener static entry must be defined for first cluster node standby database instance on first cluster node because this is required by RMAN active duplication 
+when running on first cluster node. I have added in first standby cluster node GI listener.ora (exa2node1:/u01/app/12.1.0/grid/network/admin/listener.ora):
+
+vi $ORACLE_HOME/network/admin/listener.ora
+
+SID_LIST_LISTENER =
+ (SID_LIST =
+   (SID_DESC =
+     (GLOBAL_DBNAME = EXADB2N.trevdom.inf)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+     (SID_NAME = EXADB2N1)
+   )
+ )
+Reload listener configuration.
+[grid@exa2node1 ~]$ lsnrctl reload
+
+LSNRCTL for Linux: Version 19.0.0.0.0 - Production on 28-NOV-2019 15:58:55
+
+Copyright (c) 1991, 2019, Oracle.  All rights reserved.
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER)))
+The command completed successfully
+[grid@exa2node1 ~]$ lsnrctl service
+
+LSNRCTL for Linux: Version 19.0.0.0.0 - Production on 28-NOV-2019 15:59:03
+
+Copyright (c) 1991, 2019, Oracle.  All rights reserved.
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER)))
+Services Summary...
+Service "EXADB2N.trevdom.inf" has 1 instance(s).
+  Instance "EXADB2N1", status UNKNOWN, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:0 refused:0
+         LOCAL SERVER
+The command completed successfully
+[grid@exa2node1 ~]$ lsnrctl status
+
+LSNRCTL for Linux: Version 19.0.0.0.0 - Production on 28-NOV-2019 16:01:38
+
+Copyright (c) 1991, 2019, Oracle.  All rights reserved.
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 19.0.0.0.0 - Production
+Start Date                25-NOV-2019 23:42:33
+Uptime                    2 days 16 hr. 19 min. 5 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /u01/grid/19.0.0/home1/network/admin/listener.ora
+Listener Log File         /u01/app/oracle/diag/tnslsnr/exa2node1/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=10.255.90.30)(PORT=1521)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=10.255.90.33)(PORT=1521)))
+Services Summary...
+Service "+ASM" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "+ASM_DG_DATI" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "+ASM_DG_RECO" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "+ASM_OCR" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "EXADB2N.trevdom.inf" has 1 instance(s).
+  Instance "EXADB2N1", status UNKNOWN, has 1 handler(s) for this service...
+The command completed successfully
+[grid@exa2node1 ~]$ 
+
+
+
+
+Configuring the Primary
+
+Ensure the primary database is in ARCHIVELOG mode and FORCE LOGGING is enabled.
+
+SQL> select name, db_unique_name, log_mode, force_logging, database_role from v$database;
+
+NAME      DB_UNIQUE_NAME      LOG_MODE     FORCE_LOGGING       DATABASE_ROLE
+--------- ------------------- ------------ ------------------- ----------------
+ EXADB1N  EXADB1N             ARCHIVELOG   YES                 PRIMARY
+
+
+Set Dataguard Parameters:
+alter system set log_archive_config='DG_CONFIG=(EXADB1N,EXADB2N)' scope=spfile;
+--alter system set log_archive_dest_1='location=USE_DB_RECOVERY_FILE_DEST  reopen=60 max_failure=0 mandatory valid_for=(ALL_LOGFILES,ALL_ROLES) db_unique_name=EXADB1N' scope=spfile;
+--alter system set log_archive_dest_2='service=EXADB2N ASYNC NOAFFIRM max_failure=10 max_connections=2 reopen=400 valid_for=(online_logfiles,primary_role) db_unique_name=EXADB2N' scope=both;  
+alter system set log_archive_dest_1='location=USE_DB_RECOVERY_FILE_DEST  reopen=60 max_failure=0 mandatory valid_for=(ALL_LOGFILES,ALL_ROLES) db_unique_name=EXADB1N' scope=both;
+alter system set log_archive_dest_2='service=EXADB2N max_failure=10 max_connections=2 reopen=400 valid_for=(online_logfiles,primary_role) db_unique_name=EXADB2N' scope=both;  
+alter system set log_archive_max_processes=12 scope=both;		
+alter system set fal_server=EXADB2N scope=both;
+alter system set db_file_name_convert='+DG_DATI','+DATI','+DG_RECO','+RECO' scope=spfile ;
+alter system set log_file_name_convert='+DG_DATI','+DATI','+DG_RECO','+RECO' scope=spfile ;
+alter system set standby_file_management=AUTO scope=both;
+DG_BROKER_START
+DG_BROKER_CONFIG_FILEn
+
+reboot
+srvctl stop database -database EXADB1N
+srvctl start database -database EXADB1N
+
+
+
+Creating the Standby Redo Logs (SRLs)
+Standby Redo Logs enable the changes occurring in the primary database to be reflected in almost real time in the standby, a concept known as Real Time Apply (RTA). 
+So, here we create the standby redo logs on the primary database. There should be minimum of (threads)*(groups per threads + 1) SRLs created on the standby database. 
+There are 2 threads with 3 groups per thread in this configuration on the primary side so there should be total of 8 SLRs at minimum needs to be created.
+The primary database is having 3 groups for each thread.
+
+select thread#,group#,status,bytes/1024/1024 from v$log;
+
+   THREAD#     GROUP# STATUS	       BYTES/1024/1024
+---------- ---------- ---------------- ---------------
+	 1	    1 CURRENT			   200
+	 1	    2 INACTIVE			   200
+	 2	    3 CURRENT			   200
+	 2	    4 INACTIVE			   200
+
+alter database add standby logfile thread 1 size 200m;
+
+alter database add standby logfile thread 1 size 200m;
+
+alter database add standby logfile thread 1 size 200m;
+
+alter database add standby logfile thread 2 size 200m;
+
+alter database add standby logfile thread 2 size 200m;
+
+alter database add standby logfile thread 2 size 200m;
+
+
+
+
+select thread#,group#,status,bytes/1024/1024 from v$standby_log;
+
+
+Password File
+ASMCMD> pwget --dbuniquename 'EXADB1N'
++DATI/EXADB1N/PASSWORD/pwdexadb1n.256.1025235751
+
+Copy password file from primary node to standby nodes (exa2node1, exa2node2):	
+ASMCMD > pwcopy +DATI/EXADB1N/PASSWORD/pwdexadb1n.256.1025235751 /tmp
+ASMCMD> pwcopy +DATI/EXADB1N/PASSWORD/pwdexadb1n.256.1025235751 /tmp
+copying +DATI/EXADB1N/PASSWORD/pwdexadb1n.256.1025235751 -> /tmp/pwdexadb1n.256.1025235751
+
+chmod 777 /tmp/pwdexadb1n.256.1025235751
+
+
+as oracle
+
+scp /tmp/pwdexadb1n.256.1025235751 exa2node1:$ORACLE_HOME/dbs/orapwEXADB2N1
+scp /tmp/pwdexadb1n.256.1025235751 exa2node1:$ORACLE_HOME/dbs/orapwEXADB2N2
+
+
+
+
+  
+  
+
+
+Configuring the Standby
+Create PFILE for standby instance
+On first standby cluster node. Just the DB_NAME is enough.
+[oracle@exa2node1 dbs]$ cat initEXADB2N1.ora 	
+*.db_name='aux'
+
+I have created specific directory for AUDIT_DEST_DUMP directory first set by primary SPFILE on each standby cluster node:
+[oracle@exa2node1 ~]$ mkdir -p $ORACLE_BASE/admin/EXADB2N/adump
+[oracle@exa2node2 ~]$ mkdir -p $ORACLE_BASE/admin/EXADB2N/adump
+
+Remember, 'EXADB2N' (DB_UNIQUE_NAME) in the directory structure, in this case, is case sensitive. 
+
+Startup the standby instance (first node) in NOMOUNT
+[oracle@exa2node1 ~]$ sqlplus / as sysdba
+
+SQL*Plus: Release 12.1.0.2.0 Production on Sun Jul 2 07:26:51 2017
+
+Copyright (c) 1982, 2014, Oracle.  All rights reserved.
+
+Connected to an idle instance.
+
+SQL> startup nomount;
+ORACLE instance started.
+
+Total System Global Area  260046848 bytes
+Fixed Size                  2923192 bytes
+Variable Size             201327944 bytes
+Database Buffers           50331648 bytes
+Redo Buffers                5464064 bytes
+
+
+RMAN Active Duplication
+Come back to the primary node (exa1node1) and connect to RMAN.
+
+
+[oracle@exa2node1 trace]$ rman  target sys/Bobos_123@EXADB1N
+
+Recovery Manager: Release 18.0.0.0.0 - Production on Sun Apr 28 10:08:57 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle and/or its affiliates.  All rights reserved.
+
+connected to target database: EXADB1N (DBID=3575456184)
+
+RMAN> connect  auxiliary sys/Bobos_123@exa2node1:1521/EXADB2N
+
+connected to auxiliary database: AUX (not mounted)
+
+Then, execute this within a block:
+
+RMAN> run {
+allocate channel p1 type disk;
+allocate auxiliary channel s1 type disk;
+duplicate target database for standby from active database
+spfile
+ set db_unique_name='EXADB2N'
+ set instance_name='EXADB2N1'
+ set instance_number='1'
+ set control_files='+DG_DATI','+DG_RECO'
+ set db_file_name_convert='+DATI','+DG_DATI','+RECO','+DG_RECO'
+ set log_file_name_convert='+DATI','+DG_DATI','+RECO','+DG_RECO'
+ set db_recovery_file_dest='+DG_RECO'
+ set DB_CREATE_ONLINE_LOG_DEST_1='+DG_DATI'
+ set DB_CREATE_ONLINE_LOG_DEST_2='+DG_RECO'
+ set DB_CREATE_ONLINE_LOG_DEST_3='+DG_RECO'
+ set audit_file_dest='/u01/app/oracle/admin/EXADB2N/adump'
+ set fal_server='EXADB1N'
+ set log_archive_dest_1='location=USE_DB_RECOVERY_FILE_DEST reopen=60 max_failure=0 mandatory valid_for=(ALL_LOGFILES,ALL_ROLES) db_unique_name=EXADB2N'
+ set log_archive_dest_2='service=EXADB1N LGWR  max_failure=10 max_connections=2 reopen=400 valid_for=(online_logfiles,primary_role) db_unique_name=EXADB1N'
+ ;
+}
+
+
+Modify db_file_name_convert parameter
+
+alter system set db_file_name_convert='+DG_DATI','+DATI','+DG_RECO','+RECO' scope=spfile ;
+
+select name, db_unique_name, database_role, open_mode from v$database;	
+
+NAME      DB_UNIQUE_NAME       DATABASE_ROLE       OPEN_MODE
+--------- -------------------- ------------------- --------------------
+EXADB1N   EXADB2N             PHYSICAL STANDBY    MOUNTED
+
+Set DB_CREATE_FILE_DEST and instance initialization parameters. 
+alter system set db_create_file_dest='+DG_DATI' scope=spfile;
+alter system set instance_number=2 sid='EXADB2N2' scope=spfile;
+alter system set instance_name='EXADB2N1' sid='EXADB2N1' scope=spfile;
+alter system set instance_name='EXADB2N2' sid='EXADB2N2' scope=spfile;
+alter system set undo_tablespace='UNDOTBS1' scope=both sid='EXADB2N1';
+alter system set undo_tablespace='UNDOTBS2' scope=both sid='EXADB2N2';
+
+
+Move the SPFILE to ASM
+create pfile from spfile;
+File created.
+
+sys@EXADB2N SQL> create spfile='+DG_DATI' from pfile;
+File created.1004141223
+
+SQL> show parameters spfile;
+------------------------------------ ----------- ------------------------------
+
+NAME				     TYPE	 VALUE
+spfile				     string	 +DG_DATI/EXADB2N/PARAMETERFILE/spfile.274.1004141223
+
+[oracle@exa2node1 dbs]$ echo "SPFILE='+DG_DATI/EXADB2N/PARAMETERFILE/spfile.274.1004141223'" > initEXADB2N1.ora
+[oracle@exa2node1 dbs]$ scp -p initEXADB2N1.ora exa2node2:/u01/app/oracle/product/12.1.0/db_1/dbs/initEXADB2N2.ora
+Shutdown the instance
+sys@EXADB2N SQL> shut immediate;
+
+Remove the SPFILE from the file system as we have already moved the SPFILE to ASM.
+[oracle@exa2node1 dbs]$ rm spfileEXADB2N1.ora
+
+Add the database and instance(s) to the cluster
+[oracle@exa2node1 ~]$ srvctl add database -db EXADB2N -oraclehome $ORACLE_HOME -role physical_standby -startoption mount -spfile +DG_DATI/EXADB2N/PARAMETERFILE/spfile.274.1004141223  
+[oracle@exa2node1 ~]$ srvctl add instance -db EXADB2N -instance EXADB2N1 -node exa2node1
+[oracle@exa2node1 ~]$ srvctl add instance -db EXADB2N -instance EXADB2N2 -node exa2node2
+
+
+[oracle@exa2node1 dbs]$ srvctl config database -database EXADB2N
+Nome univoco del database: EXADB2N
+Nome database: 
+Oracle home: /u01/app/oracle/product/19.0.0/dbhome_1
+Utente Oracle: oracle
+Spfile: +DG_DATI/EXADB2N/PARAMETERFILE/spfile.274.1005863703
+Password file: 
+Dominio: 
+Opzioni di avvio: mount
+Opzioni di arresto: immediate
+Ruolo del database: PHYSICAL_STANDBY
+Criterio di gestione: AUTOMATIC
+Pool di server: 
+Gruppi di dischi: DG_DATI,DG_RECO
+Percorsi del punto di accesso: 
+Servizi: 
+Tipo: RAC
+Contemporaneità di avvio: 
+Contemporaneità di arresto: 
+Gruppo OSDBA: dba
+Gruppo OSOPER: oinstall
+Istanze di database: EXADB2N1,EXADB2N2
+Nodi configurati: exa2node1,exa2node2
+Di importanza critica per CSS: no
+Conteggio CPU: 0
+Memoria destinazione: 0
+Memoria massima: 0
+Numero di rete predefinito per i servizi di database: 
+Il database è gestito da un amministratore
+
+
+We can startup both standby instances...
+[oracle@exa2node1 dbs]$ srvctl status database -database EXADB2N
+Instance EXADB2N1 is not running on node exa2node1
+Instance EXADB2N2 is not running on node exa2node2
+[oracle@exa2node1 dbs]$ srvctl start database -database EXADB2N
+[oracle@exa2node1 dbs]$ srvctl status database -database EXADB2N
+Instance EXADB2N1 is running on node exa2node1
+Instance EXADB2N2 is running on node exa2node2
+
+grid@exa2node1 ~]$ crsctl status res -t
+--------------------------------------------------------------------------------
+Name           Target  State        Server                   State details       
+--------------------------------------------------------------------------------
+Local Resources
+--------------------------------------------------------------------------------
+ora.ASMNET1LSNR_ASM.lsnr
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.DG_CRS.dg
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.DG_DATI.dg
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.DG_RECO.dg
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.LISTENER.lsnr
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.chad
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.net1.network
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+ora.ons
+               ONLINE  ONLINE       exa2node1                STABLE
+               ONLINE  ONLINE       exa2node2                STABLE
+--------------------------------------------------------------------------------
+Cluster Resources
+--------------------------------------------------------------------------------
+ora.LISTENER_SCAN1.lsnr
+      1        ONLINE  ONLINE       exa2node2                STABLE
+ora.LISTENER_SCAN2.lsnr
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.LISTENER_SCAN3.lsnr
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.MGMTLSNR
+      1        ONLINE  ONLINE       exa2node1                169.254.26.84 192.16
+                                                             8.8.11,STABLE
+ora.asm
+      1        ONLINE  ONLINE       exa2node1                Started,STABLE
+      2        ONLINE  ONLINE       exa2node2                Started,STABLE
+      3        OFFLINE OFFLINE                               STABLE
+ora.cvu
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.exa2node1.vip
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.exa2node2.vip
+      1        ONLINE  ONLINE       exa2node2                STABLE
+ora.mgmtdb
+      1        ONLINE  ONLINE       exa2node1                Open,STABLE
+ora.qosmserver
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.scan1.vip
+      1        ONLINE  ONLINE       exa2node2                STABLE
+ora.scan2.vip
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.scan3.vip
+      1        ONLINE  ONLINE       exa2node1                STABLE
+ora.EXADB2N.db
+      1        ONLINE  ONLINE       exa2node1                mounted,closed,HOME=/
+                                                             u01/app/oracle/produ
+                                                             ct/18.3.0/db_1,STABL
+                                                             E
+      2        ONLINE  ONLINE       exa2node2                mounted,closed,HOME=/
+                                                             u01/app/oracle/produ
+                                                             ct/18.3.0/db_1,STABL
+                                                             E
+
+--------------------------------------------------------------------------------
+[grid@exa2node1 ~]$ 
+
+--------------------------------------------------------------------------------
+Both standby instances are up (MOUNTED) and running.
+
+
+
+
+CONFIGURE DATABROKER
+
+LISTENERS ON ALL FOUR NODES CONFIGURED TO 
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB1N1)
+    (GLOBAL_DBNAME=EXADB1N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB1N2)
+    (GLOBAL_DBNAME=EXADB1N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB2N1)
+    (GLOBAL_DBNAME=EXADB2N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+SID_LIST_LISTENER =
+ (SID_LIST = 
+  (SID_DESC =
+   (SID_NAME = EXADB2N2)
+    (GLOBAL_DBNAME=EXADB2N_DGMGRL)
+     (ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1)
+ )
+)
+
+
+
+
+ON ALL NODES 
+vi $ORACLE_HOME/network/admin/tnsnames.ora
+
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa1node2:/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa2node1:/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+scp $ORACLE_HOME/network/admin/tnsnames.ora exa2node2:/u01/app/oracle/product/19.0.0/dbhome_1/network/admin/tnsnames.ora
+
+
+
+
+EXADB1N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa1node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB1N.trevdom.inf)
+    )
+  )
+
+EXADB2N =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = exa2node-scan)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = EXADB2N.trevdom.inf)
+    )
+  )
+
+EXADB1N1 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa1node1-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA =
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB1N.trevdom.inf)
+(INSTANCE_NAME = EXADB1N1)
+(UR = A)
+)
+)
+
+
+EXADB1N2 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa1node2-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA 2
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB1N.trevdom.inf)
+(INSTANCE_NAME = EXADB1N2)
+(UR = A)
+)
+)
+
+
+EXADB2N1 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa2node1-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA =
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB2N.trevdom.inf)
+(INSTANCE_NAME = EXADB2N1)
+(UR = A)
+)
+)
+
+EXADB2N2 =
+(DESCRIPTION =
+(ADDRESS = (PROTOCOL = TCP)(HOST = exa2node2-vip.trevdom.inf)(PORT = 1521))
+(CONNECT_DATA =
+(SERVER = DEDICATED)
+(SERVICE_NAME = EXADB2N.trevdom.inf)
+(INSTANCE_NAME = EXADB2N2)
+(UR = A)
+)
+)
+
+
+
+ON BOTH NODES
+
+2) Enable DG Broker Parameters:-
+Create the required directories in the ASM diskgroup for the dataguard configuration file and start the DMON process by enabling “dg_broker_start” parameter.
+Primary:-
+asmcmd mkdir +DATI/EXADB1N/DATAGUARDCONFIG
+asmcmd mkdir +RECO/EXADB1N/DATAGUARDCONFIG
+
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE1='+DATI/EXADB1N/DATAGUARDCONFIG/dgb_config01.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE2='+RECO/EXADB1N/DATAGUARDCONFIG/dgb_config02.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET dg_broker_start=true scope=both sid='*';
+
+Standby:-
+asmcmd mkdir +DG_DATI/EXADB2N/DATAGUARDCONFIG
+asmcmd mkdir +DG_RECO/EXADB2N/DATAGUARDCONFIG
+
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE1='+DG_DATI/EXADB2N/DATAGUARDCONFIG/dgb_config01.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET DG_BROKER_CONFIG_FILE2='+DG_RECO/EXADB2N/DATAGUARDCONFIG/dgb_config02.ora' SCOPE=BOTH sid='*';
+ALTER SYSTEM SET dg_broker_start=true scope=both sid='*';
+
+
+
+
+ON NODE EXA1NODE1(PRIMARY)
+
+[oracle@exa1node1 ~]$ dgmgrl 
+DGMGRL for Linux: Release 18.0.0.0.0 - Production on Sun Apr 28 18:59:12 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle and/or its affiliates.  All rights reserved.
+
+Welcome to DGMGRL, type "help" for information.
+dgmgrl sys/Bobos_123@EXADB1N
+Connected to "EXADB1N"
+Connected as SYSDBA.
+
+CREATE CONFIGURATION DG_EXADB AS PRIMARY DATABASE IS EXADB1N CONNECT IDENTIFIER IS EXADB1N;
+
+
+
+alter system set log_archive_dest_2='SERVICE=EXADB2N LGWR VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=EXADB2N' sid='*' scope=both;
+
+-- STANDBY log_archive_dest_2
+alter system set log_archive_dest_2='SERVICE=EXADB1N LGWR VALID_FOR=(ONLINE_LOGFILES,PRIMARY_ROLE) DB_UNIQUE_NAME=EXADB1N' sid='*' scope=both;
+
+
+
+DGMGRL> show configuration
+
+Configuration - dg_trevdb
+
+  Protection Mode: MaxPerformance
+  Members:
+  EXADB1N - Primary database
+    EXADB2N - Physical standby database 
+
+Fast-Start Failover: DISABLED
+
+Configuration Status:
+SUCCESS   (status updated 82 seconds ago)
+
+DGMGRL> show database EXADB1N
+
+Database - EXADB1N
+
+  Role:               PRIMARY
+  Intended State:     TRANSPORT-ON
+  Instance(s):
+    EXADB1N1
+    EXADB1N2
+
+Database Status:
+SUCCESS
+
+DGMGRL> show database EXADB2N;
+
+Database - EXADB2N
+
+  Role:               PHYSICAL STANDBY
+  Intended State:     APPLY-ON
+  Transport Lag:      0 seconds (computed 1 second ago)
+  Apply Lag:          0 seconds (computed 1 second ago)
+  Average Apply Rate: 3.00 KByte/s
+  Real Time Query:    ON
+  Instance(s):
+    EXADB2N1 (apply instance)
+    EXADB2N2
+
+Database Status:
+SUCCESS
+
+DGMGRL> show configuration verbose
+
+Configuration - dg_trevdb
+
+  Protection Mode: MaxPerformance
+  Members:
+  EXADB1N - Primary database
+    EXADB2N - Physical standby database 
+
+  Properties:
+    FastStartFailoverThreshold      = '30'
+    OperationTimeout                = '30'
+    TraceLevel                      = 'USER'
+    FastStartFailoverLagLimit       = '30'
+    CommunicationTimeout            = '180'
+    ObserverReconnect               = '0'
+    FastStartFailoverAutoReinstate  = 'TRUE'
+    FastStartFailoverPmyShutdown    = 'TRUE'
+    BystandersFollowRoleChange      = 'ALL'
+    ObserverOverride                = 'FALSE'
+    ExternalDestination1            = ''
+    ExternalDestination2            = ''
+    PrimaryLostWriteAction          = 'CONTINUE'
+    ConfigurationWideServiceName    = 'EXADB1N_CFG'
+
+Fast-Start Failover: DISABLED
+
+Configuration Status:
+SUCCESS
+
+CREATE A TABLESPACE AND A TABLE AND VERIFY IF CHANGES WERE PROPAGATED TO THE STANDBY NODE
+oracle@exa1node1 ~$ sqlplus / as sysdba
+
+SQL*Plus: Release 18.0.0.0.0 - Production on Sun Apr 28 19:17:00 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle.  All rights reserved.
+
+
+Connesso a:
+Oracle Database 18c Enterprise Edition Release 18.0.0.0.0 - Production
+Version 19.3.0.0.0
+
+SQL> create tablespace TEST1 datafile '+DATI' size 100m autoextend on next 100m maxsize unlimited;
+
+Creata tablespace.
+
+SQL> create table test_tab (campo1 int,campo2 varchar(10), data date) tablespace TEST1;
+
+Tabella creata.
+
+SQL> alter system switch logfile;
+
+Modificato sistema.
+
+SQL> insert into test_tab values(3,'testing dg',sysdate);
+
+Creata 1 riga.
+
+SQL> commit;
+
+Commit completato.
+
+
+SQL> set linesize  200 pagesize 200
+col name format a50
+select file#,a.name,b.name from v$datafile a, v$tablespace b where a.ts#=b.ts# order by 1;
+SQL> SQL> 
+     FILE# NAME 					      NAME
+---------- -------------------------------------------------- --------------------------------------------------
+	 1 +DATI/EXADB1N/DATAFILE/system.259.1005506119      SYSTEM
+->	 2 +DATI/EXADB1N/DATAFILE/test1.279.1006800447       TEST1     <-
+	 3 +DATI/EXADB1N/DATAFILE/sysaux.260.1005506155      SYSAUX
+	 4 +DATI/EXADB1N/DATAFILE/undotbs1.261.1005506171    UNDOTBS1
+	 5 +DATI/EXADB1N/DATAFILE/undotbs2.267.1005506633    UNDOTBS2
+	 7 +DATI/EXADB1N/DATAFILE/users.262.1005506173       USERS
+
+6 righe selezionate.
+
+
+
+ON STANDBY NODE
+[oracle@exa2node1 dbs]$ sqlplus / as sysdba
+
+SQL*Plus: Release 18.0.0.0.0 - Production on Sun Apr 28 19:13:19 2019
+Version 19.3.0.0.0
+
+Copyright (c) 1982, 2018, Oracle.  All rights reserved.
+
+Connesso a:
+Oracle Database 18c Enterprise Edition Release 18.0.0.0.0 - Production
+Version 19.3.0.0.0
+
+SQL> set linesize  200 pagesize 200
+SQL> col name format a50
+SQL> select file#,a.name,b.name from v$datafile a, v$tablespace b where a.ts#=b.ts# order by 1;
+
+     FILE# NAME 					      NAME
+---------- -------------------------------------------------- --------------------------------------------------
+	 1 +DG_DATI/EXADB2N/DATAFILE/system.259.1005863263   SYSTEM 
+->	 2 +DG_DATI/EXADB2N/DATAFILE/test1.278.1006800459    TEST1   <-
+	 3 +DG_DATI/EXADB2N/DATAFILE/sysaux.260.1005863271   SYSAUX
+	 4 +DG_DATI/EXADB2N/DATAFILE/undotbs1.261.1005863277 UNDOTBS1
+	 5 +DG_DATI/EXADB2N/DATAFILE/undotbs2.262.1005863281 UNDOTBS2
+	 7 +DG_DATI/EXADB2N/DATAFILE/users.263.1005863281    USERS
+
+6 righe selezionate.
+
+
+
+7 rows selected.
+Hope this article was useful.
+
+If you have any feedback or comments, please do write to:
+support@trevdom.lab
+
+
+
+
+
+
+
+srvctl add service -db EXADB1N -service service_rw_n -preferred EXADB1N1,EXADB1N2 -tafpolicy BASIC -role PRIMARY,SNAPSHOT_STANDBY -policy AUTOMATIC -failoverretry 10 -failoverdelay 10
+srvctl add service -db EXADB2N -service service_rw_n -preferred EXADB2N1,EXADB2N2 -tafpolicy BASIC -role PRIMARY,SNAPSHOT_STANDBY -policy AUTOMATIC -failoverretry 10 -failoverdelay 10
+
+srvctl add service -db EXADB1N -service service_ro_n -preferred EXADB1N1,EXADB1N2 -tafpolicy BASIC -role PHYSICAL_STANDBY,LOGICAL_STANDBY -policy AUTOMATIC -failoverretry 10 -failoverdelay 10
+srvctl add service -db EXADB2N -service service_ro_n -preferred EXADB2N1,EXADB2N2 -tafpolicy BASIC -role PHYSICAL_STANDBY,LOGICAL_STANDBY -policy AUTOMATIC -failoverretry 10 -failoverdelay 10
+
+configure retention policy to recovery window of 3 days;
+configure archivelog deletion policy to applied on all standby backed up 1 times to disk;
+
